@@ -1,10 +1,11 @@
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, createUIMessageStreamResponse, stepCountIs, streamText } from "ai";
+import { convertToModelMessages, createUIMessageStreamResponse, hasToolCall, streamText } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
 import { runLumaAgent } from "@/lib/agents/luma-agent";
 import { runCateringAgent } from "@/lib/agents/catering-agent";
 import { runVendorsAgent } from "@/lib/agents/vendors-agent";
+import { initiateCall } from "@/lib/calls";
 
 export async function POST(req: Request) {
   const { messages, modelId } = await req.json() as { messages: UIMessage[]; modelId: string };
@@ -25,7 +26,7 @@ Once you have confirmed ALL five details, call the create_event_plan tool to pro
 Do not call the tool until every detail is confirmed.
 Be concise, warm, and keep the Greek mythology theme subtly in your tone.`,
     messages: await convertToModelMessages(messages),
-    stopWhen: stepCountIs(5),
+    stopWhen: hasToolCall("create_event_plan"),
     tools: {
       create_event_plan: {
         description: "Create a structured event plan once all details are confirmed. Dispatches Luma, catering, and vendor subagents in parallel.",
@@ -68,7 +69,36 @@ Be concise, warm, and keep the Greek mythology theme subtly in your tone.`,
             }),
           ]);
 
-          return { ...input, lumaEvent, catering, vendors };
+          const eventContext = `Event: "${input.title}", date: ${input.date}, location: ${input.area}, headcount: ${input.headcount}, food: ${input.food}.`;
+
+          const callTargets = [
+            ...catering
+              .filter((c) => c.phone)
+              .map((c) => ({
+                phone: c.phone as string,
+                businessName: c.provider,
+                firstMessage: `Hi, I'm an AI assistant calling on behalf of someone planning an event. I'd love to ask about your catering services.`,
+                systemPrompt: `You are a friendly, concise assistant calling ${c.provider} to inquire about catering availability. ${eventContext} Ask about: availability on that date, pricing per head, and menu options for "${input.food}". Once you have the key details, thank them and let them know someone will follow up by email.`,
+              })),
+            ...vendors.vendors
+              .filter((v) => v.phone)
+              .map((v) => ({
+                phone: v.phone as string,
+                businessName: v.name,
+                firstMessage: `Hi, I'm an AI assistant calling on behalf of someone planning an event. I'd love to ask about your ${v.category.toLowerCase()} services.`,
+                systemPrompt: `You are a friendly, concise assistant calling ${v.name} about ${v.category} services. ${eventContext} Ask about: availability on that date and pricing. Once you have the key details, thank them and let them know someone will follow up by email.`,
+              })),
+          ];
+
+          const callResults = await Promise.allSettled(
+            callTargets.map((t) => initiateCall(t))
+          );
+
+          const calls = callResults
+            .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof initiateCall>>> => r.status === "fulfilled" && r.value !== null)
+            .map((r) => r.value);
+
+          return { ...input, lumaEvent, catering, vendors, calls };
         },
       },
     },
