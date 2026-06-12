@@ -1,13 +1,14 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CallVenueButton } from "@/components/call-venue-button";
+import { NavTabs } from "@/components/nav-tabs";
 import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,14 +34,28 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
+      className={cn(
+        "h-full",
+        "antialiased",
+        geistSans.variable,
+        geistMono.variable,
+        "font-sans",
+        inter.variable,
+      )}
     >
       <body className="h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <header className="shrink-0 border-b bg-background px-6 h-14 flex items-center">
-            <Flame className="size-5 mr-2 text-orange-500" />
-            <span className="text-lg font-semibold tracking-tight">Hestia</span>
-            <div className="ml-auto flex items-center gap-2">
+          <header className="shrink-0 border-b bg-background px-6 h-14 relative flex items-center">
+            <div className="flex items-center shrink-0">
+              <Flame className="size-5 mr-2 text-orange-500" />
+              <span className="text-lg font-semibold tracking-tight">
+                Hestia
+              </span>
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <NavTabs />
+            </div>
+            <div className="ml-auto flex items-center gap-2 shrink-0">
               <CallVenueButton />
               <ThemeToggle />
             </div>
