@@ -75,7 +75,7 @@ export default function ChatPage() {
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      api: "/chat",
       body: () => ({ modelId: modelIdRef.current }),
     }),
   });
