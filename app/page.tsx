@@ -1,65 +1,274 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import { AgentAvatar } from "@/components/ai-elements/agent-avatar";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
+import {
+  ModelSelector,
+  ModelSelectorContent,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorInput,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorLogo,
+  ModelSelectorName,
+  ModelSelectorTrigger,
+} from "@/components/ai-elements/model-selector";
+import {
+  Context,
+  ContextContent,
+  ContextContentBody,
+  ContextContentFooter,
+  ContextContentHeader,
+  ContextInputUsage,
+  ContextOutputUsage,
+  ContextTrigger,
+} from "@/components/ai-elements/context";
+import {
+  Plan,
+  PlanContent,
+  PlanDescription,
+  PlanHeader,
+  PlanTitle,
+  PlanTrigger,
+} from "@/components/ai-elements/plan";
+import { LumaEventCard } from "@/components/ai-elements/luma-event-card";
+import { Button } from "@/components/ui/button";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useRef, useState } from "react";
+
+const MODELS = [
+  { id: "gpt-4o", name: "GPT-4o", provider: "openai" as const, maxTokens: 128000 },
+  { id: "gpt-4o-mini", name: "GPT-4o mini", provider: "openai" as const, maxTokens: 128000 },
+];
+
+const hestiaAvatar = (
+  <AgentAvatar alt="Hestia" background="#F9CA24" src="/avatars/hestia.png" />
+);
+
+export default function ChatPage() {
+  const [text, setText] = useState("");
+  const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
+  const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+
+  const modelIdRef = useRef(selectedModelId);
+  modelIdRef.current = selectedModelId;
+
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: () => ({ modelId: modelIdRef.current }),
+    }),
+  });
+
+  const selectedModel = MODELS.find((m) => m.id === selectedModelId) ?? MODELS[0];
+  const usedTokens = messages.reduce((acc, m) => acc + m.parts.reduce((s, p) => s + (p.type === "text" ? p.text.length : 0), 0), 0);
+  const isStreaming = status === "streaming" || status === "submitted";
+
+  const handleSubmit = (message: PromptInputMessage) => {
+    if (!message.text?.trim()) return;
+    sendMessage({ text: message.text });
+    setText("");
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="flex flex-col h-full w-full">
+      <Conversation className="flex-1 min-h-0">
+        <ConversationContent className="px-4 py-6 max-w-3xl mx-auto w-full">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 py-16 text-center">
+              <AgentAvatar
+                alt="Hestia"
+                background="#F9CA24"
+                className="size-20"
+                size={80}
+                src="/avatars/hestia.png"
+              />
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-semibold tracking-tight">Hail, traveller.</h2>
+                <p className="text-muted-foreground text-sm">
+                  What event shall we bring to life?
+                </p>
+              </div>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`} key={msg.id}>
+                {msg.role === "assistant" && hestiaAvatar}
+                <Message from={msg.role}>
+                <MessageContent>
+                  {msg.parts.map((part, i) => {
+                    if (part.type === "text") {
+                      return <MessageResponse key={i}>{part.text}</MessageResponse>;
+                    }
+                    if (part.type === "tool-create_event_plan") {
+                      const p = part as typeof part & {
+                        state: "input-streaming" | "input-available" | "output-available";
+                        input: {
+                          title: string;
+                          description: string;
+                          headcount: number;
+                          area: string;
+                          date: string;
+                          food: string;
+                          lumaPage: boolean;
+                          steps: { title: string; description: string }[];
+                        };
+                        output?: {
+                          lumaEvent: {
+                            url: string;
+                            title: string;
+                            description: string;
+                            date: string;
+                            area: string;
+                            headcount: number;
+                          } | null;
+                          lumaError?: string;
+                        };
+                      };
+                      const streaming = p.state === "input-streaming";
+                      const input = p.input ?? {};
+                      return (
+                        <div className="flex flex-col gap-3" key={i}>
+                          <Plan defaultOpen isStreaming={streaming}>
+                            <PlanHeader>
+                              <div>
+                                <PlanTitle>{input.title ?? "Event Plan"}</PlanTitle>
+                                <PlanDescription>{input.description ?? " "}</PlanDescription>
+                              </div>
+                              <PlanTrigger />
+                            </PlanHeader>
+                            <PlanContent>
+                              <div className="flex flex-col gap-3 text-sm">
+                                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                                  <span>👥 {input.headcount} attendees</span>
+                                  <span>📍 {input.area}</span>
+                                  <span>📅 {input.date}</span>
+                                  <span>🍽 {input.food}</span>
+                                  {input.lumaPage && !p.output && (
+                                    <span className="col-span-2 text-muted-foreground">Creating Luma event page…</span>
+                                  )}
+                                </div>
+                                {(input.steps ?? []).length > 0 && (
+                                  <ol className="flex flex-col gap-2 mt-1">
+                                    {input.steps.map((step, si) => (
+                                      <li className="flex flex-col gap-0.5" key={si}>
+                                        <span className="font-medium">{si + 1}. {step.title}</span>
+                                        <span className="text-muted-foreground">{step.description}</span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                )}
+                              </div>
+                            </PlanContent>
+                          </Plan>
+                          {p.output?.lumaEvent && (
+                            <LumaEventCard
+                              area={p.output.lumaEvent.area}
+                              date={p.output.lumaEvent.date}
+                              description={p.output.lumaEvent.description}
+                              headcount={p.output.lumaEvent.headcount}
+                              title={p.output.lumaEvent.title}
+                              url={p.output.lumaEvent.url}
+                            />
+                          )}
+                          {p.output?.lumaError && (
+                            <p className="text-xs text-destructive">
+                              Luma error: {p.output.lumaError}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </MessageContent>
+              </Message>
+              </div>
+            ))
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <div className="border-t bg-background px-4 py-4">
+        <PromptInput
+          onSubmit={handleSubmit}
+          className="max-w-3xl mx-auto w-full"
+        >
+          <PromptInputBody>
+            <PromptInputTextarea
+              value={text}
+              placeholder="Message..."
+              onChange={(e) => setText(e.target.value)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          </PromptInputBody>
+          <PromptInputFooter>
+            <PromptInputTools>
+              <ModelSelector open={modelSelectorOpen} onOpenChange={setModelSelectorOpen}>
+                <ModelSelectorTrigger asChild>
+                  <Button size="sm" type="button" variant="ghost" className="gap-1.5 text-xs text-muted-foreground">
+                    <ModelSelectorLogo provider={selectedModel.provider} />
+                    {selectedModel.name}
+                  </Button>
+                </ModelSelectorTrigger>
+                <ModelSelectorContent>
+                  <ModelSelectorInput placeholder="Search models..." />
+                  <ModelSelectorList>
+                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                    <ModelSelectorGroup heading="Models">
+                      {MODELS.map((model) => (
+                        <ModelSelectorItem
+                          key={model.id}
+                          value={model.id}
+                          onSelect={() => {
+                            setSelectedModelId(model.id);
+                            setModelSelectorOpen(false);
+                          }}
+                        >
+                          <ModelSelectorLogo provider={model.provider} />
+                          <ModelSelectorName>{model.name}</ModelSelectorName>
+                        </ModelSelectorItem>
+                      ))}
+                    </ModelSelectorGroup>
+                  </ModelSelectorList>
+                </ModelSelectorContent>
+              </ModelSelector>
+              <Context usedTokens={usedTokens} maxTokens={selectedModel.maxTokens} modelId={selectedModel.id}>
+                <ContextTrigger size="sm" className="text-xs" />
+                <ContextContent>
+                  <ContextContentHeader />
+                  <ContextContentBody>
+                    <ContextInputUsage />
+                    <ContextOutputUsage />
+                  </ContextContentBody>
+                  <ContextContentFooter />
+                </ContextContent>
+              </Context>
+            </PromptInputTools>
+            <PromptInputSubmit disabled={!text.trim()} status={isStreaming ? "streaming" : "ready"} />
+          </PromptInputFooter>
+        </PromptInput>
+      </div>
     </div>
   );
 }

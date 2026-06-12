@@ -1,3 +1,6 @@
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
@@ -28,9 +31,21 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="h-full flex flex-col">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <header className="shrink-0 border-b bg-background px-6 h-14 flex items-center">
+            <Flame className="size-5 mr-2 text-orange-500" />
+            <span className="text-lg font-semibold tracking-tight">Hestia</span>
+            <div className="ml-auto">
+              <ThemeToggle />
+            </div>
+          </header>
+          <div className="flex-1 flex flex-col min-h-0">{children}</div>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
