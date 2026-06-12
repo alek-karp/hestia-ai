@@ -29,7 +29,9 @@ function extractEmail(text: string): string | undefined {
   return match?.[0];
 }
 
-export async function runVendorsAgent(input: VendorsAgentInput): Promise<VendorsAgentOutput> {
+export async function runVendorsAgent(
+  input: VendorsAgentInput,
+): Promise<VendorsAgentOutput> {
   const exa = new Exa(process.env.EXA_API_KEY);
 
   const result = await exa.searchAndContents(
@@ -38,10 +40,11 @@ export async function runVendorsAgent(input: VendorsAgentInput): Promise<Vendors
       type: "neural",
       numResults: 4,
       summary: {
-        query: "What kind of venue is this, what is their capacity, what do they charge for private hire, phone number, email address?",
+        query:
+          "In 1-2 sentences max: what kind of venue is this and what is their private hire capacity? Include phone or email if available.",
       },
       text: { maxCharacters: 1000 },
-    }
+    },
   );
 
   const vendors: Vendor[] = result.results.map((r) => {

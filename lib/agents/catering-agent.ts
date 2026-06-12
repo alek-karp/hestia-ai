@@ -27,7 +27,9 @@ function extractEmail(text: string): string | undefined {
   return match?.[0];
 }
 
-export async function runCateringAgent(input: CateringAgentInput): Promise<CateringAgentOutput[]> {
+export async function runCateringAgent(
+  input: CateringAgentInput,
+): Promise<CateringAgentOutput[]> {
   const exa = new Exa(process.env.EXA_API_KEY);
 
   const query = `catering company ${input.food} food ${input.area} events ${input.headcount} guests`;
@@ -36,7 +38,8 @@ export async function runCateringAgent(input: CateringAgentInput): Promise<Cater
     type: "neural",
     numResults: 4,
     summary: {
-      query: "What catering services do they offer, what is their menu, what do they cost per person, phone number, email address?",
+      query:
+        "In 1-2 sentences max: what catering services do they offer and what is their approximate cost per person? Include phone or email if available.",
     },
     text: { maxCharacters: 1000 },
   });
