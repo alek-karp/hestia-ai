@@ -1,14 +1,22 @@
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, createUIMessageStreamResponse, hasToolCall, streamText } from "ai";
 import type { UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  hasToolCall,
+  streamText,
+} from "ai";
 import { z } from "zod";
-import { runLumaAgent } from "@/lib/agents/luma-agent";
 import { runCateringAgent } from "@/lib/agents/catering-agent";
+import { runLumaAgent } from "@/lib/agents/luma-agent";
 import { runVendorsAgent } from "@/lib/agents/vendors-agent";
 import { initiateCall } from "@/lib/calls";
 
 export async function POST(req: Request) {
-  const { messages, modelId } = await req.json() as { messages: UIMessage[]; modelId: string };
+  const { messages, modelId } = (await req.json()) as {
+    messages: UIMessage[];
+    modelId: string;
+  };
 
   const result = streamText({
     model: openai(modelId ?? "gpt-4o"),
@@ -27,12 +35,14 @@ Rules:
 - Only ask for what is still missing, one question at a time.
 - Keep every response to 1–2 short sentences.
 - Once all five are known, immediately call create_event_plan — no summary, no sign-off.
+- After create_event_plan returns, call add_workflow_insights exactly once with 2–3 short, useful insights about the plan (a tip, a risk, or a recommended next step), then stop.
 - Subtle Greek mythology tone; never mention Hestia by name.`,
     messages: await convertToModelMessages(messages),
-    stopWhen: hasToolCall("create_event_plan"),
+    stopWhen: hasToolCall("add_workflow_insights"),
     tools: {
       create_event_plan: {
-        description: "Create a structured event plan once all details are confirmed. Dispatches Luma, catering, and vendor subagents in parallel.",
+        description:
+          "Create a structured event plan once all details are confirmed. Dispatches Luma, catering, and vendor subagents in parallel.",
         inputSchema: z.object({
           title: z.string().describe("Short event title"),
           description: z.string().describe("One-sentence event summary"),
@@ -41,12 +51,14 @@ Rules:
           date: z.string().describe("Date and time of the event"),
           food: z.string().describe("Food and catering plan"),
           lumaPage: z.boolean().describe("Whether to create a Luma event page"),
-          steps: z.array(
-            z.object({
-              title: z.string(),
-              description: z.string(),
-            })
-          ).describe("Ordered list of planning steps"),
+          steps: z
+            .array(
+              z.object({
+                title: z.string(),
+                description: z.string(),
+              }),
+            )
+            .describe("Ordered list of planning steps"),
         }),
         execute: async (input) => {
           const [lumaEvent, catering, vendors] = await Promise.all([
@@ -101,15 +113,43 @@ Rules:
           ];
 
           const callResults = await Promise.allSettled(
-            callTargets.map((t) => initiateCall(t))
+            callTargets.map((t) => initiateCall(t)),
           );
 
           const calls = callResults
-            .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof initiateCall>>> => r.status === "fulfilled" && r.value !== null)
+            .filter(
+              (
+                r,
+              ): r is PromiseFulfilledResult<
+                Awaited<ReturnType<typeof initiateCall>>
+              > => r.status === "fulfilled" && r.value !== null,
+            )
             .map((r) => r.value);
 
           return { ...input, lumaEvent, catering, vendors, calls };
         },
+      },
+      add_workflow_insights: {
+        description:
+          "Surface 1–3 short insights that annotate the event-planning workflow shown in the sidebar — a tip, a risk, or a recommended next step. Call once after create_event_plan returns.",
+        inputSchema: z.object({
+          insights: z
+            .array(
+              z.object({
+                title: z.string().describe("Short headline, 2–4 words"),
+                body: z.string().describe("One concise, useful sentence"),
+                tone: z
+                  .enum(["info", "success", "warning"])
+                  .describe(
+                    "info for tips, success for confirmations, warning for risks",
+                  ),
+              }),
+            )
+            .min(1)
+            .max(3)
+            .describe("The insights to display alongside the workflow"),
+        }),
+        execute: async (input) => input,
       },
     },
   });

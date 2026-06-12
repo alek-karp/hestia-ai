@@ -22,7 +22,7 @@ Browser (app/page.tsx)
 
 ### Step-by-step
 
-1. **`app/page.tsx`** — client-only chat UI. Uses `useChat` from `@ai-sdk/react` with `DefaultChatTransport` pointed at `/chat`. Sends `{ messages, modelId }`. Renders tool parts as `Plan`, subagent status cards, `LumaEventCard`, `CateringCard[]`, and `VendorsCard`.
+1. **`app/page.tsx`** — client-only chat UI with a split layout: the conversation on the left and a reactive workflow panel on the right. Uses `useChat` from `@ai-sdk/react` with `DefaultChatTransport` pointed at `/chat`. Sends `{ messages, modelId }`. Renders the tool's result cards (`LumaEventCard`, `CateringCard[]`, `VendorsCard`) inline, and feeds the latest `create_event_plan` tool state into `deriveWorkflow` to drive the `WorkflowCanvas`.
 
 2. **`app/chat/route.ts`** — the active API route. `streamText` with `stopWhen: hasToolCall("create_event_plan")`. System prompt gathers five fields conversationally before allowing the tool to fire.
 
@@ -31,6 +31,15 @@ Browser (app/page.tsx)
 4. **`lib/agents/catering-agent.ts`** — calls Exa `searchAndContents` (neural, 4 results). Parses phone/email from result text with regex. Returns `CateringAgentOutput[]`.
 
 5. **`lib/agents/vendors-agent.ts`** — runs four parallel Exa searches (Venue, AV & Tech, Photography, Florals). Returns `VendorsAgentOutput { vendors: Vendor[] }`.
+
+## Workflow Visualization (observability)
+
+The right-hand panel renders the event-planning pipeline as a live, traceable graph instead of a chatbot transcript. It is **not** user-editable — there is no drag-to-create palette; the graph is derived from the AI's progress.
+
+- **`lib/workflow.ts`** — pure model + `deriveWorkflow({ started, toolState, input, output })`. Maps the `create_event_plan` tool's stream state onto six steps (Start → Gather Event Details → Create Luma Event Page → Source Catering → Find Vendors → Compile Event Plan), computing each step's `status` and populating real `inputs`/`outputs` from the tool data. Called on every render so the canvas stays in lockstep with the assistant.
+- **`components/ai-elements/workflow-canvas.tsx`** — the right panel. Header shows workflow name + status + completed count; tabs switch between **Graph** (React Flow node diagram) and **Trace** (step list). Shows an empty state until the first message. Always visible on desktop (`w-72 sm:w-80 lg:w-[26rem]`).
+- **`components/ai-elements/workflow-node.tsx`** — `WorkflowNode` (React Flow custom node), `StatusBadge`, `StepIcon`, and the `WORKFLOW_ICONS` map.
+- **`components/ai-elements/workflow-observability.tsx`** — `WorkflowObservability`, the Trace tab's step list with expandable input/output rows.
 
 ### Inactive / legacy routes
 
@@ -55,6 +64,9 @@ Purpose-built chat UI primitives using compound-component patterns with named su
 | `luma-event-card.tsx` | Renders Luma event output |
 | `catering-card.tsx` | Renders a single caterer result |
 | `vendors-card.tsx` | Renders the vendor list |
+| `workflow-canvas.tsx` | Reactive right-hand workflow panel (Graph + Trace tabs) |
+| `workflow-node.tsx` | React Flow node, status badge, icon map |
+| `workflow-observability.tsx` | Trace tab step list with expandable I/O |
 
 ### `components/` (root)
 | Component | Purpose |

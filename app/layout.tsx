@@ -1,12 +1,12 @@
-import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { CallVenueButton } from "@/components/call-venue-button";
-import { NavTabs } from "@/components/nav-tabs";
-import { BookingPanelProvider } from "@/components/booking-panel-context";
-import { BookingPanelToggle } from "@/components/booking-panel-toggle";
 import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { BookingPanelProvider } from "@/components/booking-panel-context";
+import { BookingPanelToggle } from "@/components/booking-panel-toggle";
+import { CallVenueButton } from "@/components/call-venue-button";
+import { NavTabs } from "@/components/nav-tabs";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
