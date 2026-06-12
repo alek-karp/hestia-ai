@@ -1,11 +1,16 @@
 /**
  * Workflow model for Hestia event planning.
  *
- * A workflow is an ordered, reproducible sequence of steps the AI runs while
- * planning an event. The graph is NOT hand-authored by the user — it is derived
+ * A workflow is a reproducible directed acyclic graph (DAG) of steps the AI runs
+ * while planning an event. It is NOT hand-authored by the user — it is derived
  * reactively from the chat: as the assistant gathers details and runs the
  * `create_event_plan` tool, steps light up so the whole path is traceable and
  * observable (no chatbot scrolling required).
+ *
+ * Steps are not purely sequential. Each step declares the steps it `dependsOn`,
+ * so independent steps that share the same dependencies run in parallel (e.g.
+ * the Luma page, catering, and vendor subagents all fan out from
+ * "Gather Event Details" and fan back into "Compile Event Plan").
  */
 
 export type StepStatus = "pending" | "running" | "succeeded" | "failed";
@@ -31,6 +36,12 @@ export interface WorkflowStep {
     inputs: StepIO[];
     /** What the node produces — surfaced as the node's output badge. */
     outputs: StepIO[];
+    /**
+     * IDs of steps that must finish before this one starts. An empty array marks
+     * a root. Steps that share the same dependencies run in parallel; a step
+     * with multiple dependencies is a fan-in (join) of parallel branches.
+     */
+    dependsOn: string[];
 }
 
 /** The shape of the `create_event_plan` tool surfaced in the chat stream. */
@@ -140,6 +151,7 @@ export function deriveWorkflow({
             status: started ? "succeeded" : "pending",
             inputs: [{ label: "User Request" }],
             outputs: [{ label: "User Request" }],
+            dependsOn: [],
         },
         {
             id: "gather-details",
@@ -155,6 +167,7 @@ export function deriveWorkflow({
                     value: specFull,
                 },
             ],
+            dependsOn: ["start"],
         },
         {
             id: "luma-page",
@@ -170,6 +183,7 @@ export function deriveWorkflow({
                     value: output?.lumaEvent?.url,
                 },
             ],
+            dependsOn: ["gather-details"],
         },
         {
             id: "catering",
@@ -185,6 +199,7 @@ export function deriveWorkflow({
                     value: output?.catering?.map((c) => `• ${c.provider}`).join("\n"),
                 },
             ],
+            dependsOn: ["gather-details"],
         },
         {
             id: "vendors",
@@ -206,6 +221,7 @@ export function deriveWorkflow({
                         .join("\n"),
                 },
             ],
+            dependsOn: ["gather-details"],
         },
         {
             id: "compile-plan",
@@ -219,6 +235,7 @@ export function deriveWorkflow({
                 { label: "Vendor Shortlist" },
             ],
             outputs: [{ label: "Final Plan", preview: done ? "Ready" : "—" }],
+            dependsOn: ["luma-page", "catering", "vendors"],
         },
     ];
 

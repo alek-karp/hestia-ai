@@ -35,6 +35,38 @@ function stepOutput(step: WorkflowStep): string {
   return out.preview && out.preview !== "—" ? out.preview : out.label;
 }
 
+/** Sanitise a step id into a valid OpenUI Lang identifier. */
+function varName(id: string): string {
+  return `step_${id.replace(/[^a-zA-Z0-9]/g, "_")}`;
+}
+
+/**
+ * Group steps into ordered rows by dependency rank (longest path from a root).
+ * Steps that share a rank run in parallel and are emitted together. `steps` is
+ * topologically ordered by `deriveWorkflow`, so a single forward pass suffices.
+ */
+function groupByRank(steps: WorkflowStep[]): WorkflowStep[][] {
+  const rankById = new Map<string, number>();
+  for (const step of steps) {
+    const rank = step.dependsOn.length
+      ? Math.max(...step.dependsOn.map((id) => rankById.get(id) ?? 0)) + 1
+      : 0;
+    rankById.set(step.id, rank);
+  }
+
+  const rows = new Map<number, WorkflowStep[]>();
+  for (const step of steps) {
+    const rank = rankById.get(step.id) ?? 0;
+    const row = rows.get(rank);
+    if (row) row.push(step);
+    else rows.set(rank, [step]);
+  }
+
+  return [...rows.keys()]
+    .sort((a, b) => a - b)
+    .map((rank) => rows.get(rank) as WorkflowStep[]);
+}
+
 /**
  * Build the full OpenUI Lang program for the workflow sidebar.
  */
@@ -50,15 +82,37 @@ export function buildWorkflowLang({
   const lines: string[] = [];
 
   lines.push(
-    `root = WorkflowPanel(${lit(name)}, ${lit(panelStatus(steps))}, steps, insights)`,
+    `root = WorkflowPanel(${lit(name)}, ${lit(panelStatus(steps))}, rows, insights)`,
   );
 
-  lines.push(`steps = [${steps.map((_, i) => `step${i}`).join(", ")}]`);
-  steps.forEach((step, i) => {
-    lines.push(
-      `step${i} = WorkflowStep(${lit(step.title)}, ${lit(step.status)}, ${lit(step.icon)}, ${lit(stepOutput(step))})`,
-    );
+  const rows = groupByRank(steps);
+  const rowVars: string[] = [];
+  const groupDefs: string[] = [];
+  const stepDefs: string[] = [];
+
+  rows.forEach((row, rowIndex) => {
+    const stepVars = row.map((step) => {
+      const v = varName(step.id);
+      stepDefs.push(
+        `${v} = WorkflowStep(${lit(step.title)}, ${lit(step.status)}, ${lit(step.icon)}, ${lit(stepOutput(step))})`,
+      );
+      return v;
+    });
+
+    if (stepVars.length === 1) {
+      rowVars.push(stepVars[0]);
+    } else {
+      const groupVar = `group${rowIndex}`;
+      groupDefs.push(
+        `${groupVar} = WorkflowParallelGroup([${stepVars.join(", ")}])`,
+      );
+      rowVars.push(groupVar);
+    }
   });
+
+  lines.push(`rows = [${rowVars.join(", ")}]`);
+  lines.push(...groupDefs);
+  lines.push(...stepDefs);
 
   lines.push(
     `insights = [${insights.map((_, i) => `insight${i}`).join(", ")}]`,

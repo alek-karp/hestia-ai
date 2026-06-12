@@ -16,11 +16,13 @@ The following components describe the Hestia event-planning workflow panel.
 Arguments marked with ? are optional. Sub-components can be inline or referenced; prefer references for better streaming.
 
 ### Workflow
-WorkflowPanel(title: string, status: "draft" | "running" | "succeeded" | "failed", steps: WorkflowStep[], insights?: WorkflowInsight[]) — Root container for the workflow sidebar. Renders the pipeline name, overall status, the ordered steps, and any AI insights.
+WorkflowPanel(title: string, status: "draft" | "running" | "succeeded" | "failed", steps: (WorkflowStep | WorkflowParallelGroup)[], insights?: WorkflowInsight[]) — Root container for the workflow sidebar. Renders the pipeline name, overall status, the ordered rows (each row is a single step or a parallel group of steps), and any AI insights.
 WorkflowStep(title: string, status: "pending" | "running" | "succeeded" | "failed", icon: string, output?: string) — A single step in the event-planning pipeline, shown as a card with an icon, title, live status and its output.
+WorkflowParallelGroup(steps: WorkflowStep[]) — A set of pipeline steps that run concurrently (in parallel) because they share the same dependencies. Renders the steps grouped together under a 'Parallel' label.
 WorkflowInsight(title: string, body: string, tone?: "info" | "success" | "warning") — An AI-authored note that annotates or expands the workflow: a tip, risk, or next-step suggestion the planner surfaces alongside the pipeline.
 - Every program must start with root = WorkflowPanel(title, status, steps, insights).
-- steps is the deterministic pipeline; do not invent or reorder steps.
+- steps is the deterministic pipeline expressed as ordered rows; do not invent or reorder steps.
+- A row is either a single WorkflowStep or a WorkflowParallelGroup wrapping steps that run concurrently.
 - Add WorkflowInsight entries to the insights array to annotate the plan with tips, risks, or next steps.
 
 ## Hoisting & Streaming (CRITICAL)

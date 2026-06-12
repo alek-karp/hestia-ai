@@ -10,7 +10,7 @@
  */
 
 import { createLibrary, defineComponent } from "@openuidev/react-lang";
-import { Info, Lightbulb, TriangleAlert } from "lucide-react";
+import { GitBranch, Info, Lightbulb, TriangleAlert } from "lucide-react";
 import { z } from "zod/v4";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -50,6 +50,26 @@ const WorkflowStep = defineComponent({
           </Badge>
         </div>
       )}
+    </div>
+  ),
+});
+
+const WorkflowParallelGroup = defineComponent({
+  name: "WorkflowParallelGroup",
+  description:
+    "A set of pipeline steps that run concurrently (in parallel) because they share the same dependencies. Renders the steps grouped together under a 'Parallel' label.",
+  props: z.object({
+    steps: z.array(WorkflowStep.ref),
+  }),
+  component: ({ props, renderNode }) => (
+    <div className="rounded-md border border-dashed bg-muted/30 p-2">
+      <div className="mb-2 flex items-center gap-1.5 px-1">
+        <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          Parallel · {props.steps.length} branches
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">{renderNode(props.steps)}</div>
     </div>
   ),
 });
@@ -94,11 +114,11 @@ const WorkflowInsight = defineComponent({
 const WorkflowPanel = defineComponent({
   name: "WorkflowPanel",
   description:
-    "Root container for the workflow sidebar. Renders the pipeline name, overall status, the ordered steps, and any AI insights.",
+    "Root container for the workflow sidebar. Renders the pipeline name, overall status, the ordered rows (each row is a single step or a parallel group of steps), and any AI insights.",
   props: z.object({
     title: z.string(),
     status: z.enum(["draft", "running", "succeeded", "failed"]),
-    steps: z.array(WorkflowStep.ref),
+    steps: z.array(z.union([WorkflowStep.ref, WorkflowParallelGroup.ref])),
     insights: z.array(WorkflowInsight.ref).optional(),
   }),
   component: ({ props, renderNode }) => (
@@ -120,14 +140,25 @@ const WorkflowPanel = defineComponent({
 
 export const workflowLibrary = createLibrary({
   root: "WorkflowPanel",
-  components: [WorkflowPanel, WorkflowStep, WorkflowInsight],
+  components: [
+    WorkflowPanel,
+    WorkflowStep,
+    WorkflowParallelGroup,
+    WorkflowInsight,
+  ],
   componentGroups: [
     {
       name: "Workflow",
-      components: ["WorkflowPanel", "WorkflowStep", "WorkflowInsight"],
+      components: [
+        "WorkflowPanel",
+        "WorkflowStep",
+        "WorkflowParallelGroup",
+        "WorkflowInsight",
+      ],
       notes: [
         "- Every program must start with root = WorkflowPanel(title, status, steps, insights).",
-        "- steps is the deterministic pipeline; do not invent or reorder steps.",
+        "- steps is the deterministic pipeline expressed as ordered rows; do not invent or reorder steps.",
+        "- A row is either a single WorkflowStep or a WorkflowParallelGroup wrapping steps that run concurrently.",
         "- Add WorkflowInsight entries to the insights array to annotate the plan with tips, risks, or next steps.",
       ],
     },

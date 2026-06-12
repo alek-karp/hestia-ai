@@ -27,7 +27,45 @@ import "@xyflow/react/dist/style.css";
 
 const nodeTypes: NodeTypes = { workflow: WorkflowNode };
 
+const NODE_WIDTH = 288;
+const NODE_GAP_X = 56;
 const NODE_GAP_Y = 176;
+
+/**
+ * Lay the DAG out in horizontal ranks: a step's rank is the longest dependency
+ * path from a root, so steps that share the same dependencies land on the same
+ * row and read as parallel branches. `steps` is already topologically ordered
+ * (parents before children) by `deriveWorkflow`, so a single pass suffices.
+ */
+function layoutSteps(
+  steps: WorkflowStep[],
+): Map<string, { x: number; y: number }> {
+  const rankById = new Map<string, number>();
+  for (const step of steps) {
+    const rank = step.dependsOn.length
+      ? Math.max(...step.dependsOn.map((id) => rankById.get(id) ?? 0)) + 1
+      : 0;
+    rankById.set(step.id, rank);
+  }
+
+  const rows = new Map<number, WorkflowStep[]>();
+  for (const step of steps) {
+    const rank = rankById.get(step.id) ?? 0;
+    const row = rows.get(rank);
+    if (row) row.push(step);
+    else rows.set(rank, [step]);
+  }
+
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const [rank, row] of rows) {
+    const span = row.length * NODE_WIDTH + (row.length - 1) * NODE_GAP_X;
+    row.forEach((step, i) => {
+      const x = i * (NODE_WIDTH + NODE_GAP_X) - span / 2 + NODE_WIDTH / 2;
+      positions.set(step.id, { x, y: rank * NODE_GAP_Y });
+    });
+  }
+  return positions;
+}
 
 function Graph({
   steps,
@@ -38,28 +76,30 @@ function Graph({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const nodes: Node[] = useMemo(
-    () =>
-      steps.map((step, i) => ({
-        id: step.id,
-        type: "workflow",
-        position: { x: 0, y: i * NODE_GAP_Y },
-        data: { step, selected: selectedId === step.id, onSelect },
-        draggable: false,
-      })),
-    [steps, selectedId, onSelect],
-  );
+  const nodes: Node[] = useMemo(() => {
+    const positions = layoutSteps(steps);
+    return steps.map((step) => ({
+      id: step.id,
+      type: "workflow",
+      position: positions.get(step.id) ?? { x: 0, y: 0 },
+      data: { step, selected: selectedId === step.id, onSelect },
+      draggable: false,
+    }));
+  }, [steps, selectedId, onSelect]);
 
-  const edges: Edge[] = useMemo(
-    () =>
-      steps.slice(0, -1).map((step, i) => {
-        const next = steps[i + 1];
-        const animated = next.status === "running";
+  const edges: Edge[] = useMemo(() => {
+    const statusById = new Map(steps.map((s) => [s.id, s.status]));
+    return steps.flatMap((step) =>
+      step.dependsOn.map((sourceId) => {
+        // Animate the edge while the dependent (target) step is running.
+        const animated = step.status === "running";
         const color = animated ? "var(--primary)" : "var(--border)";
+        // Dim edges whose source has not completed yet.
+        const sourceDone = statusById.get(sourceId) === "succeeded";
         return {
-          id: `${step.id}-${next.id}`,
-          source: step.id,
-          target: next.id,
+          id: `${sourceId}-${step.id}`,
+          source: sourceId,
+          target: step.id,
           type: "smoothstep",
           animated,
           markerEnd: {
@@ -71,11 +111,12 @@ function Graph({
           style: {
             stroke: color,
             strokeWidth: 1.5,
+            opacity: sourceDone || animated ? 1 : 0.6,
           },
         };
       }),
-    [steps],
-  );
+    );
+  }, [steps]);
 
   return (
     <ReactFlowProvider>

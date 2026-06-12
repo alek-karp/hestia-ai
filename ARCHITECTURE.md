@@ -36,10 +36,15 @@ Browser (app/page.tsx)
 
 The right-hand panel renders the event-planning pipeline as a live, traceable graph instead of a chatbot transcript. It is **not** user-editable — there is no drag-to-create palette; the graph is derived from the AI's progress.
 
-- **`lib/workflow.ts`** — pure model + `deriveWorkflow({ started, toolState, input, output })`. Maps the `create_event_plan` tool's stream state onto six steps (Start → Gather Event Details → Create Luma Event Page → Source Catering → Find Vendors → Compile Event Plan), computing each step's `status` and populating real `inputs`/`outputs` from the tool data. Called on every render so the canvas stays in lockstep with the assistant.
-- **`components/ai-elements/workflow-canvas.tsx`** — the right panel. Header shows workflow name + status + completed count; tabs switch between **Graph** (React Flow node diagram) and **Trace** (step list). Shows an empty state until the first message. Always visible on desktop (`w-72 sm:w-80 lg:w-[26rem]`).
+The pipeline is a **directed acyclic graph (DAG), not a straight line**. Each step declares the steps it `dependsOn`, so independent steps that share the same dependencies run **in parallel**: the Luma page, catering, and vendor subagents all fan out from "Gather Event Details" and fan back into "Compile Event Plan".
+
+- **`lib/workflow.ts`** — pure model + `deriveWorkflow({ started, toolState, input, output })`. Maps the `create_event_plan` tool's stream state onto six steps (Start → Gather Event Details → {Create Luma Event Page ∥ Source Catering ∥ Find Vendors} → Compile Event Plan), computing each step's `status`, `dependsOn` edges, and real `inputs`/`outputs` from the tool data. Called on every render so the canvas stays in lockstep with the assistant.
+- **`components/ai-elements/workflow-canvas.tsx`** — the right panel. Header shows workflow name + status + completed count; tabs switch between **Graph** (React Flow node diagram), **Steps** (OpenUI Lang render), and **Trace** (step list). The Graph lays steps out in dependency ranks (`layoutSteps`) so parallel branches sit side-by-side, and derives edges from each step's `dependsOn`. Shows an empty state until the first message. Always visible on desktop (`w-72 sm:w-80 lg:w-[26rem]`).
 - **`components/ai-elements/workflow-node.tsx`** — `WorkflowNode` (React Flow custom node), `StatusBadge`, `StepIcon`, and the `WORKFLOW_ICONS` map.
 - **`components/ai-elements/workflow-observability.tsx`** — `WorkflowObservability`, the Trace tab's step list with expandable input/output rows.
+- **`lib/workflow-lang.ts`** — serialises the derived workflow to OpenUI Lang for the Steps tab. Groups steps by dependency rank (`groupByRank`); ranks with multiple steps are emitted as a `WorkflowParallelGroup` so the list reflects parallel branches too.
+- **`components/ai-elements/workflow-openui.tsx`** — the OpenUI component library (`WorkflowPanel`, `WorkflowStep`, `WorkflowParallelGroup`, `WorkflowInsight`) registered for the `<Renderer>`. Drives `scripts/generate-workflow-prompt.ts` → `lib/generated/workflow-system-prompt.txt`.
+
 
 ### Inactive / legacy routes
 
