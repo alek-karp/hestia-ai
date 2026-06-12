@@ -2,6 +2,7 @@
 
 import { Handle, Position } from "@xyflow/react";
 import {
+  CalendarCheck,
   CalendarPlus,
   CheckCircle2,
   Circle,
@@ -11,8 +12,11 @@ import {
   GitBranch,
   Globe,
   type LucideIcon,
+  MessagesSquare,
+  Send,
   Sparkles,
   Store,
+  UserCheck,
   UtensilsCrossed,
   XCircle,
 } from "lucide-react";
@@ -31,6 +35,10 @@ export const WORKFLOW_ICONS: Record<string, LucideIcon> = {
   FileCheck2,
   GitBranch,
   Globe,
+  Send,
+  MessagesSquare,
+  CalendarCheck,
+  UserCheck,
 };
 
 export function StepIcon({

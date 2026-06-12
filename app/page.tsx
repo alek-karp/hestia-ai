@@ -73,6 +73,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   deriveWorkflow,
+  type OutreachOverview,
   type PlanToolInput,
   type PlanToolOutput,
   type PlanToolState,
@@ -235,11 +236,61 @@ export default function ChatPage() {
     return undefined;
   }, [messages]);
 
+  // Live autonomous-booking snapshot for the workflow's outreach phase. We only
+  // READ the campaign overview here (the in-chat tracker is what drives the
+  // loop), polling until everything settles so the graph mirrors the bookings.
+  const campaignId =
+    (planPart?.output as { campaignId?: string | null } | undefined)
+      ?.campaignId ?? null;
+  const [outreach, setOutreach] = useState<OutreachOverview | undefined>();
+
+  useEffect(() => {
+    if (!campaignId) {
+      setOutreach(undefined);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/orchestrator?campaignId=${encodeURIComponent(campaignId)}`,
+        );
+        const data = (await res.json()) as {
+          tasks?: unknown[];
+          active?: number;
+          counts?: Record<string, number>;
+        };
+        if (cancelled) return;
+        const snapshot: OutreachOverview = {
+          total: data.tasks?.length ?? 0,
+          active: data.active ?? 0,
+          counts: data.counts ?? {},
+        };
+        setOutreach(snapshot);
+        const needsHuman = snapshot.counts.needs_human ?? 0;
+        // Keep polling while anything is in flight or awaiting a human; stop
+        // once the campaign has fully settled.
+        if (snapshot.total === 0 || snapshot.active > 0 || needsHuman > 0) {
+          timer = setTimeout(poll, 1500);
+        }
+      } catch {
+        if (!cancelled) timer = setTimeout(poll, 2500);
+      }
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [campaignId]);
+
   const workflow = deriveWorkflow({
     started: messages.length > 0,
     toolState: planPart?.state,
     input: planPart?.input,
     output: planPart?.output,
+    outreach,
   });
 
   // AI-authored insights (OpenUI WorkflowInsight) from the latest tool call.
