@@ -1,5 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CallVenueButton } from "@/components/call-venue-button";
 import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
@@ -39,7 +40,8 @@ export default function RootLayout({
           <header className="shrink-0 border-b bg-background px-6 h-14 flex items-center">
             <Flame className="size-5 mr-2 text-orange-500" />
             <span className="text-lg font-semibold tracking-tight">Hestia</span>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <CallVenueButton />
               <ThemeToggle />
             </div>
           </header>

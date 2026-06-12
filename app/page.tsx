@@ -64,6 +64,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useRef, useState } from "react";
 
+
 const MODELS = [
   { id: "gpt-4o", name: "GPT-4o", provider: "openai" as const, maxTokens: 128000 },
   { id: "gpt-4o-mini", name: "GPT-4o mini", provider: "openai" as const, maxTokens: 128000 },

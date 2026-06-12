@@ -72,7 +72,16 @@ Rules:
             }).catch(() => ({ vendors: [] })),
           ]);
 
-          const eventContext = `Event: "${input.title}", date: ${input.date}, location: ${input.area}, headcount: ${input.headcount}, food: ${input.food}.`;
+          const sharedVars = {
+            agentName: process.env.VAPI_AGENT_NAME ?? "Hestia",
+            yourCompany: process.env.VAPI_COMPANY_NAME ?? "Hestia Events",
+            eventType: input.title,
+            preferredDates: input.date,
+            guestCount: String(input.headcount),
+            budget: "",
+            city: input.area,
+            callbackNumber: process.env.VAPI_CALLBACK_NUMBER ?? "",
+          };
 
           const callTargets = [
             ...catering
@@ -80,16 +89,14 @@ Rules:
               .map((c) => ({
                 phone: c.phone as string,
                 businessName: c.provider,
-                firstMessage: `Hi, I'm an AI assistant calling on behalf of someone planning an event. I'd love to ask about your catering services.`,
-                systemPrompt: `You are a friendly, concise assistant calling ${c.provider} to inquire about catering availability. ${eventContext} Ask about: availability on that date, pricing per head, and menu options for "${input.food}". Once you have the key details, thank them and let them know someone will follow up by email.`,
+                variables: { ...sharedVars, eventType: `${input.food} catering for ${input.title}` },
               })),
             ...vendors.vendors
               .filter((v) => v.phone)
               .map((v) => ({
                 phone: v.phone as string,
                 businessName: v.name,
-                firstMessage: `Hi, I'm an AI assistant calling on behalf of someone planning an event. I'd love to ask about your ${v.category.toLowerCase()} services.`,
-                systemPrompt: `You are a friendly, concise assistant calling ${v.name} about ${v.category} services. ${eventContext} Ask about: availability on that date and pricing. Once you have the key details, thank them and let them know someone will follow up by email.`,
+                variables: { ...sharedVars, eventType: `${v.category} for ${input.title}` },
               })),
           ];
 

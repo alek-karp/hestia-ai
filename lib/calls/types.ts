@@ -1,8 +1,7 @@
 export type OutboundCall = {
   phone: string;
   businessName: string;
-  firstMessage: string;
-  systemPrompt: string;
+  variables: Record<string, string>;
 };
 
 export type CallRecord = {

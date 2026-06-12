@@ -5,8 +5,9 @@ const VAPI_API_URL = "https://api.vapi.ai";
 export function createVapiProvider(): CallProvider | null {
   const apiKey = process.env.VAPI_API_KEY;
   const phoneNumberId = process.env.VAPI_PHONE_NUMBER_ID;
+  const assistantId = process.env.VAPI_ASSISTANT_ID;
 
-  if (!apiKey || !phoneNumberId) return null;
+  if (!apiKey || !phoneNumberId || !assistantId) return null;
 
   return {
     async initiate(call: OutboundCall): Promise<CallRecord> {
@@ -17,21 +18,11 @@ export function createVapiProvider(): CallProvider | null {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          assistantId,
           phoneNumberId,
           customer: { number: call.phone },
-          assistant: {
-            firstMessage: call.firstMessage,
-            model: {
-              provider: "openai",
-              model: "gpt-4o-mini",
-              messages: [{ role: "system", content: call.systemPrompt }],
-            },
-            voice: {
-              provider: "openai",
-              voiceId: "alloy",
-            },
-            endCallMessage:
-              "Thank you for your time. Someone will follow up by email shortly. Goodbye!",
+          assistantOverrides: {
+            variableValues: call.variables,
           },
         }),
       });
