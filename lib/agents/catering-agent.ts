@@ -1,3 +1,5 @@
+import Exa from "exa-js";
+
 export type CateringAgentInput = {
   headcount: number;
   food: string;
@@ -10,19 +12,45 @@ export type CateringAgentOutput = {
   menu: string[];
   notes: string;
   estimatedCostPerHead: number;
+  url?: string;
+  phone?: string;
+  email?: string;
 };
 
-export async function runCateringAgent(_input: CateringAgentInput): Promise<CateringAgentOutput> {
-  await new Promise((r) => setTimeout(r, 2400));
-  return {
-    provider: "Olive & Thyme Catering Co.",
-    menu: [
-      "Mediterranean mezze platters",
-      "Grilled chicken skewers with tzatziki",
-      "Roasted vegetable tart",
-      "Baklava and seasonal fruit",
-    ],
-    notes: `Suitable for ${_input.headcount} guests. Dietary alternatives available on request.`,
-    estimatedCostPerHead: 45,
-  };
+function extractPhone(text: string): string | undefined {
+  const match = text.match(/(\+?[\d\s\-().]{7,18}\d)/);
+  return match?.[0]?.trim();
+}
+
+function extractEmail(text: string): string | undefined {
+  const match = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  return match?.[0];
+}
+
+export async function runCateringAgent(input: CateringAgentInput): Promise<CateringAgentOutput[]> {
+  const exa = new Exa(process.env.EXA_API_KEY);
+
+  const query = `catering company ${input.food} food ${input.area} events ${input.headcount} guests`;
+
+  const result = await exa.searchAndContents(query, {
+    type: "neural",
+    numResults: 4,
+    summary: {
+      query: "What catering services do they offer, what is their menu, what do they cost per person, phone number, email address?",
+    },
+    text: { maxCharacters: 1000 },
+  });
+
+  return result.results.map((r) => {
+    const fullText = `${r.summary ?? ""} ${r.text ?? ""}`;
+    return {
+      provider: r.title ?? r.url,
+      menu: [],
+      notes: r.summary ?? r.text?.slice(0, 300) ?? "",
+      estimatedCostPerHead: 0,
+      url: r.url,
+      phone: extractPhone(fullText),
+      email: extractEmail(fullText),
+    };
+  });
 }

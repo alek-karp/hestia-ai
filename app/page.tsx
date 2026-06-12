@@ -155,9 +155,12 @@ export default function ChatPage() {
                             menu: string[];
                             notes: string;
                             estimatedCostPerHead: number;
-                          };
+                            url?: string;
+                            phone?: string;
+                            email?: string;
+                          }[];
                           vendors: {
-                            vendors: { category: string; name: string; notes: string }[];
+                            vendors: { category: string; name: string; notes: string; url?: string; phone?: string; email?: string }[];
                           };
                         };
                       };
@@ -207,7 +210,7 @@ export default function ChatPage() {
                           {(dispatching || done) && (
                             <div className="flex flex-col gap-2">
                               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Subagents</p>
-                              <div className="grid grid-cols-3 gap-2">
+                              <div className="flex flex-col gap-2">
                                 {subagents.map(({ name, label, icon }) => (
                                   <Agent key={name}>
                                     <AgentHeader
@@ -236,13 +239,8 @@ export default function ChatPage() {
                               url={p.output.lumaEvent.url}
                             />
                           )}
-                          {p.output?.catering && (
-                            <CateringCard
-                              provider={p.output.catering.provider}
-                              menu={p.output.catering.menu}
-                              notes={p.output.catering.notes}
-                              estimatedCostPerHead={p.output.catering.estimatedCostPerHead}
-                            />
+                          {p.output?.catering && Array.isArray(p.output.catering) && (
+                            <CateringCard options={p.output.catering} />
                           )}
                           {p.output?.vendors && (
                             <VendorsCard vendors={p.output.vendors.vendors} />

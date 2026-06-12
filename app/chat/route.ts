@@ -54,19 +54,19 @@ Be concise, warm, and keep the Greek mythology theme subtly in your tone.`,
                   date: input.date,
                   area: input.area,
                   headcount: input.headcount,
-                })
+                }).catch(() => null)
               : Promise.resolve(null),
             runCateringAgent({
               headcount: input.headcount,
               food: input.food,
               area: input.area,
               date: input.date,
-            }),
+            }).catch(() => []),
             runVendorsAgent({
               area: input.area,
               headcount: input.headcount,
               date: input.date,
-            }),
+            }).catch(() => ({ vendors: [] })),
           ]);
 
           const eventContext = `Event: "${input.title}", date: ${input.date}, location: ${input.area}, headcount: ${input.headcount}, food: ${input.food}.`;
