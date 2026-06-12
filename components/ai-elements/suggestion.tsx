@@ -1,13 +1,10 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  ScrollArea,
-  ScrollBar,
-} from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 export type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 
@@ -55,3 +52,21 @@ export const Suggestion = ({
     </Button>
   );
 };
+
+export type QuickRepliesProps = {
+  replies: string[];
+  onReply: (reply: string) => void;
+  className?: string;
+};
+
+export const QuickReplies = ({
+  replies,
+  onReply,
+  className,
+}: QuickRepliesProps) => (
+  <Suggestions className={cn("mt-2", className)}>
+    {replies.map((r) => (
+      <Suggestion key={r} suggestion={r} onClick={onReply} />
+    ))}
+  </Suggestions>
+);
