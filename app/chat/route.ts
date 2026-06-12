@@ -121,6 +121,7 @@ Rules:
                 businessName: c.provider,
                 variables: {
                   ...sharedVars,
+                  businessName: c.provider,
                   eventType: `${input.food} catering for ${input.title}`,
                 },
               })),
@@ -131,6 +132,7 @@ Rules:
                 businessName: v.name,
                 variables: {
                   ...sharedVars,
+                  businessName: v.name,
                   eventType: `${v.category} for ${input.title}`,
                 },
               })),

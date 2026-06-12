@@ -1,7 +1,21 @@
 "use client";
 
-import { CheckCircle2, Phone, Calendar, Clock, MapPin, Users, Utensils, Building2, Camera, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Phone,
+  Calendar,
+  MapPin,
+  Users,
+  Utensils,
+  Building2,
+  Camera,
+  Loader2,
+  XCircle,
+  HelpCircle,
+} from "lucide-react";
 import { useBookingPanel } from "@/components/booking-panel-context";
+import { useEffect, useState } from "react";
+import type { CallResult } from "@/lib/calls/store";
 
 type BookingStatus = "idle" | "dispatching" | "confirmed";
 
@@ -31,9 +45,7 @@ function StatusBadge({ status }: { status: BookingStatus }) {
       </div>
     );
   }
-  return (
-    <span className="text-[10px] text-muted-foreground">Not started</span>
-  );
+  return <span className="text-[10px] text-muted-foreground">Not started</span>;
 }
 
 function SectionCard({ section }: { section: BookingSection }) {
@@ -48,9 +60,13 @@ function SectionCard({ section }: { section: BookingSection }) {
       </div>
       {section.name ? (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold leading-snug">{section.name}</span>
+          <span className="text-sm font-semibold leading-snug">
+            {section.name}
+          </span>
           {section.detail && (
-            <span className="text-xs text-muted-foreground">{section.detail}</span>
+            <span className="text-xs text-muted-foreground">
+              {section.detail}
+            </span>
           )}
         </div>
       ) : (
@@ -62,12 +78,67 @@ function SectionCard({ section }: { section: BookingSection }) {
   );
 }
 
+function CallStatusBadge({ status }: { status: CallResult["bookingStatus"] }) {
+  if (status === "confirmed") {
+    return (
+      <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+        <CheckCircle2 className="size-3" /> Booked via call
+      </div>
+    );
+  }
+  if (status === "declined") {
+    return (
+      <div className="flex items-center gap-1 text-[10px] text-red-500 dark:text-red-400 font-medium">
+        <XCircle className="size-3" /> Unavailable
+      </div>
+    );
+  }
+  if (status === "pending") {
+    return (
+      <div className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+        <Loader2 className="size-3 animate-spin" /> Calling…
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+      <HelpCircle className="size-3" /> Call ended
+    </div>
+  );
+}
+
 export function BookingPanel({ onClose }: { onClose?: () => void }) {
   const { eventPlan } = useBookingPanel();
+  const [callResults, setCallResults] = useState<CallResult[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    async function poll() {
+      try {
+        const res = await fetch("/api/calls/status");
+        if (res.ok && active) setCallResults(await res.json());
+      } catch {}
+    }
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, []);
 
   if (!eventPlan) return null;
 
-  const { title, date, area, headcount, isDispatching, venue, catering, lumaEvent } = eventPlan;
+  const {
+    title,
+    date,
+    area,
+    headcount,
+    isDispatching,
+    venue,
+    catering,
+    lumaEvent,
+  } = eventPlan;
 
   const sections: BookingSection[] = [
     {
@@ -121,6 +192,32 @@ export function BookingPanel({ onClose }: { onClose?: () => void }) {
         {sections.map((section) => (
           <SectionCard key={section.id} section={section} />
         ))}
+        {callResults.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-0.5">
+              Phone Outreach
+            </span>
+            {callResults.map((call) => (
+              <div
+                key={call.callId}
+                className="flex flex-col gap-1.5 rounded-xl border border-border bg-background p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Phone className="size-3.5" />
+                    {call.businessName}
+                  </div>
+                  <CallStatusBadge status={call.bookingStatus} />
+                </div>
+                {call.summary && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {call.summary}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ export async function POST() {
     variables: {
       agentName: process.env.VAPI_AGENT_NAME ?? "Hestia",
       yourCompany: process.env.VAPI_COMPANY_NAME ?? "Hestia Events",
+      businessName: "Venue",
       eventType: "birthday dinner",
       preferredDates: "June 28 or June 29 (evening)",
       guestCount: "35",
@@ -19,7 +20,10 @@ export async function POST() {
   });
 
   if (!record) {
-    return Response.json({ error: "Call provider not configured" }, { status: 503 });
+    return Response.json(
+      { error: "Call provider not configured" },
+      { status: 503 },
+    );
   }
 
   return Response.json(record);
