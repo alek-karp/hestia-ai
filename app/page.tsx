@@ -229,17 +229,20 @@ export default function ChatPage() {
                           {
                             name: "Apollo",
                             label: "Creating event page",
-                            icon: "🔗",
+                            emoji: "☀️",
+                            bg: "#FDE68A",
                           },
                           {
                             name: "Demeter",
                             label: "Sourcing catering",
-                            icon: "🍽",
+                            emoji: "🌾",
+                            bg: "#BBF7D0",
                           },
                           {
                             name: "Artemis",
                             label: "Finding vendors",
-                            icon: "🏛",
+                            emoji: "🌙",
+                            bg: "#C7D2FE",
                           },
                         ];
 
@@ -292,12 +295,20 @@ export default function ChatPage() {
                                   Subagents
                                 </p>
                                 <div className="flex flex-col gap-2">
-                                  {subagents.map(({ name, label, icon }) => (
+                                  {subagents.map(({ name, label, emoji, bg }) => (
                                     <Agent key={name}>
                                       <AgentHeader
-                                        name={`${icon} ${name}`}
+                                        name={name}
                                         model={
                                           dispatching ? "Running…" : "Done"
+                                        }
+                                        avatar={
+                                          <AgentAvatar
+                                            alt={name}
+                                            background={bg}
+                                            emoji={emoji}
+                                            size={24}
+                                          />
                                         }
                                       />
                                       <AgentContent className="pb-3 pt-0">

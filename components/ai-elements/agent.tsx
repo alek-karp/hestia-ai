@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Tool } from "ai";
 import { BotIcon } from "lucide-react";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { memo } from "react";
 
 import { CodeBlock } from "./code-block";
@@ -27,10 +27,11 @@ export const Agent = memo(({ className, ...props }: AgentProps) => (
 export type AgentHeaderProps = ComponentProps<"div"> & {
   name: string;
   model?: string;
+  avatar?: ReactNode;
 };
 
 export const AgentHeader = memo(
-  ({ className, name, model, ...props }: AgentHeaderProps) => (
+  ({ className, name, model, avatar, ...props }: AgentHeaderProps) => (
     <div
       className={cn(
         "flex w-full items-center justify-between gap-4 p-3",
@@ -39,7 +40,7 @@ export const AgentHeader = memo(
       {...props}
     >
       <div className="flex items-center gap-2">
-        <BotIcon className="size-4 text-muted-foreground" />
+        {avatar ?? <BotIcon className="size-4 text-muted-foreground" />}
         <span className="font-medium text-sm">{name}</span>
         {model && (
           <Badge className="font-mono text-xs" variant="secondary">
