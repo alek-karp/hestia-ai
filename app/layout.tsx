@@ -1,12 +1,9 @@
 import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { AirbyteTestButton } from "@/components/airbyte-test-button";
 import { BookingPanelProvider } from "@/components/booking-panel-context";
 import { BookingPanelToggle } from "@/components/booking-panel-toggle";
 import { WorkflowToggle } from "@/components/workflow-toggle";
-import { CallVenueButton } from "@/components/call-venue-button";
-import { EmailVendorButton } from "@/components/email-vendor-button";
 import { NavTabs } from "@/components/nav-tabs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -62,9 +59,6 @@ export default function RootLayout({
                 <NavTabs />
               </div>
               <div className="ml-auto flex items-center gap-2 shrink-0">
-                <AirbyteTestButton />
-                <CallVenueButton />
-                <EmailVendorButton />
                 <ThemeToggle />
                 <WorkflowToggle />
                 <BookingPanelToggle />
