@@ -1,6 +1,7 @@
 import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { AirbyteTestButton } from "@/components/airbyte-test-button";
 import { BookingPanelProvider } from "@/components/booking-panel-context";
 import { BookingPanelToggle } from "@/components/booking-panel-toggle";
 import { CallVenueButton } from "@/components/call-venue-button";
@@ -49,24 +50,25 @@ export default function RootLayout({
       <body className="h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <BookingPanelProvider>
-          <header className="shrink-0 border-b bg-background px-6 h-14 relative flex items-center">
-            <div className="flex items-center shrink-0">
-              <Flame className="size-5 mr-2 text-orange-500" />
-              <span className="text-lg font-semibold tracking-tight">
-                Hestia
-              </span>
-            </div>
-            <div className="absolute left-1/2 -translate-x-1/2">
-              <NavTabs />
-            </div>
-            <div className="ml-auto flex items-center gap-2 shrink-0">
-              <CallVenueButton />
-              <EmailVendorButton />
-              <ThemeToggle />
-              <BookingPanelToggle />
-            </div>
-          </header>
-          <div className="flex-1 flex flex-col min-h-0">{children}</div>
+            <header className="shrink-0 border-b bg-background px-6 h-14 relative flex items-center">
+              <div className="flex items-center shrink-0">
+                <Flame className="size-5 mr-2 text-orange-500" />
+                <span className="text-lg font-semibold tracking-tight">
+                  Hestia
+                </span>
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2">
+                <NavTabs />
+              </div>
+              <div className="ml-auto flex items-center gap-2 shrink-0">
+                <AirbyteTestButton />
+                <CallVenueButton />
+                <EmailVendorButton />
+                <ThemeToggle />
+                <BookingPanelToggle />
+              </div>
+            </header>
+            <div className="flex-1 flex flex-col min-h-0">{children}</div>
           </BookingPanelProvider>
         </ThemeProvider>
       </body>

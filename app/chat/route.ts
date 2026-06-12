@@ -10,6 +10,11 @@ import { z } from "zod";
 import { runCateringAgent } from "@/lib/agents/catering-agent";
 import { runLumaAgent } from "@/lib/agents/luma-agent";
 import { runVendorsAgent } from "@/lib/agents/vendors-agent";
+import {
+  AIRBYTE_CONTEXT_STORE_PROMPT,
+  contextStoreSearch,
+  getEventContext,
+} from "@/lib/airbyte/context-store";
 import { initiateCall } from "@/lib/calls";
 import { sendOutreachEmail } from "@/lib/emails";
 import { composeOutreach } from "@/lib/emails/compose";
@@ -31,6 +36,8 @@ Your job is to collect five details before creating a plan:
 4. Date (and time if relevant)
 5. Whether to create an online event page on Luma (yes/no)
 
+${AIRBYTE_CONTEXT_STORE_PROMPT}
+
 Rules:
 - Accept details the moment the user states them clearly — never repeat them back or ask "just to confirm".
 - If the user gives multiple details at once, capture all of them.
@@ -44,7 +51,7 @@ Rules:
     tools: {
       create_event_plan: {
         description:
-          "Create a structured event plan once all details are confirmed. Dispatches Luma, catering, and vendor subagents in parallel.",
+          "Create a structured event plan once all details are confirmed. Searches Airbyte Context Store for shared event context, then dispatches Luma, catering, and vendor subagents in parallel.",
         inputSchema: z.object({
           title: z.string().describe("Short event title"),
           description: z.string().describe("One-sentence event summary"),
@@ -63,6 +70,13 @@ Rules:
             .describe("Ordered list of planning steps"),
         }),
         execute: async (input) => {
+          const airbyteContext = await getEventContext({
+            area: input.area,
+            headcount: input.headcount,
+            food: input.food,
+            date: input.date,
+          });
+
           const [lumaEvent, catering, vendors] = await Promise.all([
             input.lumaPage
               ? runLumaAgent({
@@ -78,11 +92,13 @@ Rules:
               food: input.food,
               area: input.area,
               date: input.date,
+              contextRecords: airbyteContext.background.records,
             }).catch(() => []),
             runVendorsAgent({
               area: input.area,
               headcount: input.headcount,
               date: input.date,
+              contextRecords: airbyteContext.background.records,
             }).catch(() => ({ vendors: [] })),
           ]);
 
@@ -185,8 +201,58 @@ Rules:
             )
             .map((r) => r.value);
 
-          return { ...input, lumaEvent, catering, vendors, calls, emails };
+          return {
+            ...input,
+            airbyteContext,
+            lumaEvent,
+            catering,
+            vendors,
+            calls,
+            emails,
+          };
         },
+      },
+      context_store_search: {
+        description:
+          "Search Airbyte Context Store for indexed records from connected business sources. Use for read-only search, filtering, sorting, and aggregation before falling back to direct APIs.",
+        inputSchema: z.object({
+          connector: z
+            .string()
+            .optional()
+            .describe("Optional Airbyte connector/source identifier"),
+          entity: z
+            .string()
+            .describe(
+              "Entity to search, such as contacts, deals, products, vendors, or caterers",
+            ),
+          query: z
+            .string()
+            .optional()
+            .describe(
+              "Human-readable search intent for traceability. Airbyte requires structured filters, so this is not sent as the Context Store query object.",
+            ),
+          filters: z
+            .record(z.unknown())
+            .optional()
+            .describe("Structured filters supported by the connector entity"),
+          fields: z
+            .array(z.string())
+            .optional()
+            .describe("Fields to include in the returned records"),
+          sort: z
+            .array(z.record(z.unknown()))
+            .optional()
+            .describe("Sort clauses supported by the connector entity"),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(50)
+            .optional()
+            .describe("Maximum records to return"),
+          cursor: z.string().optional().describe("Pagination cursor"),
+        }),
+        execute: async (input) => contextStoreSearch(input),
       },
       add_workflow_insights: {
         description:

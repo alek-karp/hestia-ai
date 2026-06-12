@@ -4,6 +4,7 @@ export type VendorsAgentInput = {
   area: string;
   headcount: number;
   date: string;
+  contextRecords?: Record<string, unknown>[];
 };
 
 export type Vendor = {
@@ -13,6 +14,7 @@ export type Vendor = {
   url?: string;
   phone?: string;
   email?: string;
+  source?: "exa";
 };
 
 export type VendorsAgentOutput = {
@@ -25,8 +27,17 @@ function extractPhone(text: string): string | undefined {
 }
 
 function extractEmail(text: string): string | undefined {
-  const match = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   return match?.[0];
+}
+
+function contextText(records: Record<string, unknown>[] | undefined) {
+  return records?.length
+    ? ` Event background context: ${records
+        .map((record) => JSON.stringify(record))
+        .join(" ")
+        .slice(0, 1200)}`
+    : "";
 }
 
 export async function runVendorsAgent(
@@ -35,7 +46,7 @@ export async function runVendorsAgent(
   const exa = new Exa(process.env.EXA_API_KEY);
 
   const result = await exa.searchAndContents(
-    `event venue cafe restaurant bar hall ${input.area} hire private events ${input.headcount} guests`,
+    `event venue cafe restaurant bar hall ${input.area} hire private events ${input.headcount} guests${contextText(input.contextRecords)}`,
     {
       type: "neural",
       numResults: 4,
@@ -56,6 +67,7 @@ export async function runVendorsAgent(
       url: r.url,
       phone: extractPhone(fullText),
       email: extractEmail(fullText),
+      source: "exa",
     };
   });
 

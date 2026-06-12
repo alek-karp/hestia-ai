@@ -5,6 +5,7 @@ export type CateringAgentInput = {
   food: string;
   area: string;
   date: string;
+  contextRecords?: Record<string, unknown>[];
 };
 
 export type CateringAgentOutput = {
@@ -15,7 +16,17 @@ export type CateringAgentOutput = {
   url?: string;
   phone?: string;
   email?: string;
+  source?: "exa";
 };
+
+function contextText(records: Record<string, unknown>[] | undefined) {
+  return records?.length
+    ? ` Event background context: ${records
+        .map((record) => JSON.stringify(record))
+        .join(" ")
+        .slice(0, 1200)}`
+    : "";
+}
 
 function extractPhone(text: string): string | undefined {
   const match = text.match(/(\+?[\d\s\-().]{7,18}\d)/);
@@ -23,7 +34,7 @@ function extractPhone(text: string): string | undefined {
 }
 
 function extractEmail(text: string): string | undefined {
-  const match = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/);
+  const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   return match?.[0];
 }
 
@@ -32,7 +43,7 @@ export async function runCateringAgent(
 ): Promise<CateringAgentOutput[]> {
   const exa = new Exa(process.env.EXA_API_KEY);
 
-  const query = `catering company ${input.food} food ${input.area} events ${input.headcount} guests`;
+  const query = `catering company ${input.food} food ${input.area} events ${input.headcount} guests${contextText(input.contextRecords)}`;
 
   const result = await exa.searchAndContents(query, {
     type: "neural",
@@ -54,6 +65,7 @@ export async function runCateringAgent(
       url: r.url,
       phone: extractPhone(fullText),
       email: extractEmail(fullText),
+      source: "exa",
     };
   });
 }

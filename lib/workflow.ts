@@ -62,6 +62,9 @@ export interface PlanToolInput {
 }
 
 export interface PlanToolOutput {
+    airbyteContext?: {
+        background?: { ok?: boolean; records?: unknown[] };
+    };
     lumaEvent?: {
         url: string;
         title: string;
@@ -132,6 +135,10 @@ export function deriveWorkflow({
         return "pending";
     };
 
+    const airbyteRecordCount = output?.airbyteContext?.background?.records?.length ?? 0;
+    const airbyteOk = output?.airbyteContext?.background?.ok;
+    const airbyteContextDone = airbyteOk !== undefined;
+
     const lumaDone = Boolean(output?.lumaEvent);
     const cateringDone = Boolean(output?.catering?.length);
     const vendorsDone = Boolean(output?.vendors?.vendors?.length);
@@ -170,6 +177,36 @@ export function deriveWorkflow({
             dependsOn: ["start"],
         },
         {
+            id: "airbyte-context",
+            title: "Fetch Event Context",
+            icon: "DatabaseZap",
+            category: "research",
+            status: airbyteContextDone
+                ? "succeeded"
+                : dispatching
+                    ? "running"
+                    : "pending",
+            inputs: [{ label: "Event Spec", preview: spec }],
+            outputs: [
+                {
+                    label: "Context Records",
+                    preview: airbyteContextDone
+                        ? airbyteOk
+                            ? airbyteRecordCount > 0
+                                ? `${airbyteRecordCount} records`
+                                : "No records"
+                            : "Unavailable"
+                        : "—",
+                    value: airbyteContextDone
+                        ? airbyteOk
+                            ? `Airbyte Context Store returned ${airbyteRecordCount} background record${airbyteRecordCount !== 1 ? "s" : ""}`
+                            : "Airbyte Context Store not configured — agents will use Exa only"
+                        : undefined,
+                },
+            ],
+            dependsOn: ["gather-details"],
+        },
+        {
             id: "luma-page",
             title: "Create Luma Event Page",
             icon: "CalendarPlus",
@@ -183,7 +220,7 @@ export function deriveWorkflow({
                     value: output?.lumaEvent?.url,
                 },
             ],
-            dependsOn: ["gather-details"],
+            dependsOn: ["airbyte-context"],
         },
         {
             id: "catering",
@@ -191,7 +228,17 @@ export function deriveWorkflow({
             icon: "UtensilsCrossed",
             category: "research",
             status: subStatus(cateringDone),
-            inputs: [{ label: "Event Spec", preview: input?.food }],
+            inputs: [
+                { label: "Event Spec", preview: input?.food },
+                {
+                    label: "Context Records",
+                    preview: airbyteContextDone
+                        ? airbyteRecordCount > 0
+                            ? `${airbyteRecordCount} records`
+                            : "None"
+                        : "—",
+                },
+            ],
             outputs: [
                 {
                     label: "Catering Options",
@@ -199,7 +246,7 @@ export function deriveWorkflow({
                     value: output?.catering?.map((c) => `• ${c.provider}`).join("\n"),
                 },
             ],
-            dependsOn: ["gather-details"],
+            dependsOn: ["airbyte-context"],
         },
         {
             id: "vendors",
@@ -209,6 +256,14 @@ export function deriveWorkflow({
             status: subStatus(vendorsDone),
             inputs: [
                 { label: "Event Spec", preview: "Venue · AV · Photo · Florals" },
+                {
+                    label: "Context Records",
+                    preview: airbyteContextDone
+                        ? airbyteRecordCount > 0
+                            ? `${airbyteRecordCount} records`
+                            : "None"
+                        : "—",
+                },
             ],
             outputs: [
                 {
@@ -221,7 +276,7 @@ export function deriveWorkflow({
                         .join("\n"),
                 },
             ],
-            dependsOn: ["gather-details"],
+            dependsOn: ["airbyte-context"],
         },
         {
             id: "compile-plan",
