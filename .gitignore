@@ -37,6 +37,16 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local MCP and agent skill tooling
+.mcp.json
+.mcp/
+mcp/
+.claude/
+.codex/skills/
+.agents/skills/
+.skills/
+skills/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
