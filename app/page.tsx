@@ -229,19 +229,19 @@ export default function ChatPage() {
                           {
                             name: "Apollo",
                             label: "Creating event page",
-                            emoji: "☀️",
+                            src: "/avatars/apollo.png",
                             bg: "#FDE68A",
                           },
                           {
                             name: "Demeter",
                             label: "Sourcing catering",
-                            emoji: "🌾",
+                            src: "/avatars/demeter.png",
                             bg: "#BBF7D0",
                           },
                           {
                             name: "Artemis",
                             label: "Finding vendors",
-                            emoji: "🌙",
+                            src: "/avatars/artemis.png",
                             bg: "#C7D2FE",
                           },
                         ];
@@ -295,7 +295,7 @@ export default function ChatPage() {
                                   Subagents
                                 </p>
                                 <div className="flex flex-col gap-2">
-                                  {subagents.map(({ name, label, emoji, bg }) => (
+                                  {subagents.map(({ name, label, src, bg }) => (
                                     <Agent key={name}>
                                       <AgentHeader
                                         name={name}
@@ -306,7 +306,7 @@ export default function ChatPage() {
                                           <AgentAvatar
                                             alt={name}
                                             background={bg}
-                                            emoji={emoji}
+                                            src={src}
                                             size={24}
                                           />
                                         }
