@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { BookingPanelProvider } from "@/components/booking-panel-context";
 import { BookingPanelToggle } from "@/components/booking-panel-toggle";
 import { CallVenueButton } from "@/components/call-venue-button";
+import { EmailVendorButton } from "@/components/email-vendor-button";
 import { NavTabs } from "@/components/nav-tabs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -60,6 +61,7 @@ export default function RootLayout({
             </div>
             <div className="ml-auto flex items-center gap-2 shrink-0">
               <CallVenueButton />
+              <EmailVendorButton />
               <ThemeToggle />
               <BookingPanelToggle />
             </div>

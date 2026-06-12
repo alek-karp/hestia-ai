@@ -17,6 +17,8 @@ Browser (app/page.tsx)
                     lib/agents/catering-agent.ts  → Exa neural search for caterers
                     lib/agents/vendors-agent.ts   → Exa neural search × 4 categories
                   ])
+              └── initiateCall × N        (VAPI outbound phone calls)
+              └── sendOutreachEmail × N   (AgentMail vendor/caterer emails)
               └── createUIMessageStreamResponse → browser
 ```
 
@@ -31,6 +33,25 @@ Browser (app/page.tsx)
 4. **`lib/agents/catering-agent.ts`** — calls Exa `searchAndContents` (neural, 4 results). Parses phone/email from result text with regex. Returns `CateringAgentOutput[]`.
 
 5. **`lib/agents/vendors-agent.ts`** — runs four parallel Exa searches (Venue, AV & Tech, Photography, Florals). Returns `VendorsAgentOutput { vendors: Vendor[] }`.
+
+## Outreach Integrations
+
+After the subagents return, `create_event_plan` fans out to two outbound channels. Both mirror the same provider pattern (lazy provider, returns `null`/no-op when unconfigured) so they're optional.
+
+### Phone calls (VAPI)
+
+- **`lib/calls/`** — `types.ts` (`OutboundCall`, `CallRecord`, `CallProvider`), `vapi.ts` (`createVapiProvider` → POST `/call/phone`), `index.ts` (`initiateCall`). Returns `null` when `VAPI_API_KEY` / `VAPI_PHONE_NUMBER_ID` / `VAPI_ASSISTANT_ID` are missing.
+- **`app/api/calls/venue/route.ts`** — manual demo trigger (POST). **`app/api/calls/webhook/route.ts`** — receives VAPI events (`end-of-call-report`, etc.).
+- **`components/call-venue-button.tsx`** — navbar button that POSTs to the venue route.
+
+### Email (AgentMail)
+
+- **`lib/emails/`** — `types.ts` (`OutreachEmail`, `EmailRecord`, `EmailProvider`, plus `ThreadSummary` / `ThreadDetail` / `ThreadMessage` / `ReplyInput` for the reply loop), `agentmail.ts` (`createAgentMailProvider` using the `agentmail` SDK — `send`, `listThreads`, `getThread`, `reply`), `compose.ts` (`composeOutreach` builds vendor-outreach subject/text/HTML from an event brief), `draft.ts` (`draftThreadReply` — `generateText` proposes Hestia's next reply from the thread), `index.ts` (`sendOutreachEmail`, `listReplyThreads`, `getReplyThread`, `sendThreadReply`). All return `null`/`[]` when `AGENTMAIL_API_KEY` is missing.
+- **Demo safety guard:** every email is delivered to `EMAIL_REDIRECT_TO` (default `priyanshu.mahey02@gmail.com`), never to the real vendor. The body is addressed to the vendor and a `[Hestia outreach → …]` banner is prepended so the redirect inbox can reply *as* the vendor.
+- The sending inbox is `AGENTMAIL_INBOX_ID`; if unset, an inbox is created on first send and cached in memory. `AGENTMAIL_FROM_NAME` signs the messages.
+- **Reply loop (polling + human-in-the-loop):** outreach threads carry AgentMail's system `sent` label, which the default thread list hides — so `listThreads` filters by `labels: ["sent"]` to surface all outreach (replies keep the label, so replied threads show too). `awaitingReply` is true when the latest sender isn't our own inbox.
+- **`app/api/emails/outreach/route.ts`** — manual outreach trigger (POST, optional JSON override). **`app/api/emails/replies/route.ts`** — GET lists threads, GET `?threadId=` returns a full thread. **`app/api/emails/replies/draft/route.ts`** — POST `{ threadId }` returns an AI-drafted reply (sends nothing). **`app/api/emails/replies/reply/route.ts`** — POST `{ threadId, text }` sends the approved reply to the thread's last message. **`app/api/emails/webhook/route.ts`** — receives AgentMail events (`message.received` etc.); verify svix signatures with `AGENTMAIL_WEBHOOK_SECRET` in production.
+- **`components/email-vendor-button.tsx`** — navbar button that POSTs to the outreach route. **`app/inbox/page.tsx`** — "Inbox" tab: thread list + conversation view + AI-draft/approve/send composer (polls on load and after sending). Added to `components/nav-tabs.tsx`.
 
 ## Workflow Visualization (observability)
 
@@ -80,6 +101,7 @@ Purpose-built chat UI primitives using compound-component patterns with named su
 | `booking-panel-context.tsx` | `BookingPanelProvider` + `useBookingPanel` — shared open/close state between navbar and page |
 | `booking-panel-toggle.tsx` | Navbar `PanelRight` icon button that calls `togglePanel` from context |
 | `call-venue-button.tsx` | VAPI call trigger button in navbar |
+| `email-vendor-button.tsx` | AgentMail outreach trigger button in navbar |
 | `nav-tabs.tsx` | Centered navigation tabs in header |
 | `verified-caterer-card.tsx` | Verified caterer display card |
 | `verified-vendor-card.tsx` | Verified vendor display card |
@@ -94,7 +116,7 @@ create_event_plan tool input:
   title, description, headcount, area, date, food, lumaPage, steps[]
 
 create_event_plan tool output:
-  ...input + lumaEvent (LumaAgentOutput | null) + catering (CateringAgentOutput[]) + vendors (VendorsAgentOutput)
+  ...input + lumaEvent (LumaAgentOutput | null) + catering (CateringAgentOutput[]) + vendors (VendorsAgentOutput) + calls (CallRecord[]) + emails (EmailRecord[])
 
 LumaAgentOutput:   { url, title, description, date, area, headcount }
 CateringAgentOutput: { provider, menu[], notes, estimatedCostPerHead, url?, phone?, email? }
@@ -109,6 +131,8 @@ Vendor:            { category, name, notes, url?, phone?, email? }
 | OpenAI | `OPENAI_API_KEY` | Active — all LLM calls |
 | Exa | `EXA_API_KEY` | Active — catering + vendor searches |
 | Luma | `LUMA_API_KEY` | Present, not yet wired up (agent is stubbed) |
+| VAPI | `VAPI_API_KEY`, `VAPI_PHONE_NUMBER_ID`, `VAPI_ASSISTANT_ID` | Active — outbound phone calls |
+| AgentMail | `AGENTMAIL_API_KEY`, `AGENTMAIL_INBOX_ID`, `EMAIL_REDIRECT_TO`, `AGENTMAIL_FROM_NAME` | Active — vendor email outreach (all mail routed to `EMAIL_REDIRECT_TO`) |
 
 ## Stack
 

@@ -11,6 +11,8 @@ import { runCateringAgent } from "@/lib/agents/catering-agent";
 import { runLumaAgent } from "@/lib/agents/luma-agent";
 import { runVendorsAgent } from "@/lib/agents/vendors-agent";
 import { initiateCall } from "@/lib/calls";
+import { sendOutreachEmail } from "@/lib/emails";
+import { composeOutreach } from "@/lib/emails/compose";
 
 export async function POST(req: Request) {
   const { messages, modelId } = (await req.json()) as {
@@ -101,14 +103,20 @@ Rules:
               .map((c) => ({
                 phone: c.phone as string,
                 businessName: c.provider,
-                variables: { ...sharedVars, eventType: `${input.food} catering for ${input.title}` },
+                variables: {
+                  ...sharedVars,
+                  eventType: `${input.food} catering for ${input.title}`,
+                },
               })),
             ...vendors.vendors
               .filter((v) => v.phone)
               .map((v) => ({
                 phone: v.phone as string,
                 businessName: v.name,
-                variables: { ...sharedVars, eventType: `${v.category} for ${input.title}` },
+                variables: {
+                  ...sharedVars,
+                  eventType: `${v.category} for ${input.title}`,
+                },
               })),
           ];
 
@@ -126,7 +134,58 @@ Rules:
             )
             .map((r) => r.value);
 
-          return { ...input, lumaEvent, catering, vendors, calls };
+          // Email outreach to caterers and vendors that expose an email.
+          // Every message is routed to the demo redirect inbox, so the copy is
+          // addressed to the vendor but never reaches a real business.
+          const fromName = process.env.AGENTMAIL_FROM_NAME ?? "Hestia Events";
+          const eventBrief = {
+            title: input.title,
+            date: input.date,
+            area: input.area,
+            headcount: input.headcount,
+            food: input.food,
+          };
+
+          const emailTargets = [
+            ...catering
+              .filter((c) => c.email)
+              .map((c) =>
+                composeOutreach({
+                  businessName: c.provider,
+                  category: "Catering",
+                  intendedTo: c.email,
+                  event: eventBrief,
+                  fromName,
+                }),
+              ),
+            ...vendors.vendors
+              .filter((v) => v.email)
+              .map((v) =>
+                composeOutreach({
+                  businessName: v.name,
+                  category: v.category,
+                  intendedTo: v.email,
+                  event: eventBrief,
+                  fromName,
+                }),
+              ),
+          ];
+
+          const emailResults = await Promise.allSettled(
+            emailTargets.map((e) => sendOutreachEmail(e)),
+          );
+
+          const emails = emailResults
+            .filter(
+              (
+                r,
+              ): r is PromiseFulfilledResult<
+                Awaited<ReturnType<typeof sendOutreachEmail>>
+              > => r.status === "fulfilled" && r.value !== null,
+            )
+            .map((r) => r.value);
+
+          return { ...input, lumaEvent, catering, vendors, calls, emails };
         },
       },
       add_workflow_insights: {
