@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const BG_COLORS = [
   "bg-orange-100",
   "bg-rose-100",
@@ -5,7 +7,12 @@ const BG_COLORS = [
   "bg-yellow-100",
 ];
 
-const ICONS = ["🍽", "🥗", "🍱", "🧆"];
+const CATERING_IMAGES = [
+  "/catering/catering-1.webp",
+  "/catering/catering-2.webp",
+  "/catering/catering-3.webp",
+  "/catering/catering-4.webp",
+];
 
 export type CateringOption = {
   provider: string;
@@ -33,9 +40,15 @@ export function CateringCard({ options }: CateringCardProps) {
             className="flex flex-col gap-2 shrink-0 w-48 snap-start"
           >
             <div
-              className={`relative aspect-[4/3] rounded-xl ${BG_COLORS[i % BG_COLORS.length]} flex items-center justify-center`}
+              className={`relative aspect-[4/3] rounded-xl overflow-hidden ${BG_COLORS[i % BG_COLORS.length]}`}
             >
-              <span className="text-4xl opacity-50 select-none">{ICONS[i % ICONS.length]}</span>
+              <Image
+                src={CATERING_IMAGES[i % CATERING_IMAGES.length]}
+                alt={c.provider}
+                fill
+                className="object-cover"
+                sizes="192px"
+              />
             </div>
             <div className="flex flex-col gap-0.5 px-0.5">
               {c.url ? (

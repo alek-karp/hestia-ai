@@ -1,4 +1,12 @@
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+
+const VENUE_IMAGES = [
+  "/venues/venue-1.webp",
+  "/venues/venue-2.webp",
+  "/venues/venue-3.webp",
+  "/venues/venue-4.webp",
+];
 
 export type Vendor = {
   category: string;
@@ -41,11 +49,21 @@ export function VendorsCard({ vendors }: VendorsCardProps) {
             className="flex flex-col gap-2 shrink-0 w-48 snap-start"
           >
             <div
-              className={`relative aspect-[4/3] rounded-xl ${BG_COLORS[i % BG_COLORS.length]} flex items-center justify-center`}
+              className={`relative aspect-[4/3] rounded-xl overflow-hidden ${BG_COLORS[i % BG_COLORS.length]} flex items-center justify-center`}
             >
-              <span className="text-4xl opacity-50 select-none">
-                {CATEGORY_ICONS[vendor.category] ?? "🏢"}
-              </span>
+              {vendor.category === "Venue" ? (
+                <Image
+                  src={VENUE_IMAGES[i % VENUE_IMAGES.length]}
+                  alt={vendor.name}
+                  fill
+                  className="object-cover"
+                  sizes="192px"
+                />
+              ) : (
+                <span className="text-4xl opacity-50 select-none">
+                  {CATEGORY_ICONS[vendor.category] ?? "🏢"}
+                </span>
+              )}
             </div>
             <div className="flex flex-col gap-0.5 px-0.5">
               <Badge variant="secondary" className="self-start text-[10px] py-0 h-4">
