@@ -2,6 +2,9 @@ import { openai } from "@ai-sdk/openai";
 import { convertToModelMessages, createUIMessageStreamResponse, stepCountIs, streamText } from "ai";
 import type { UIMessage } from "ai";
 import { z } from "zod";
+import { runLumaAgent } from "@/lib/agents/luma-agent";
+import { runCateringAgent } from "@/lib/agents/catering-agent";
+import { runVendorsAgent } from "@/lib/agents/vendors-agent";
 
 export async function POST(req: Request) {
   const { messages, modelId } = await req.json() as { messages: UIMessage[]; modelId: string };
@@ -22,10 +25,10 @@ Once you have confirmed ALL five details, call the create_event_plan tool to pro
 Do not call the tool until every detail is confirmed.
 Be concise, warm, and keep the Greek mythology theme subtly in your tone.`,
     messages: await convertToModelMessages(messages),
-    stopWhen: stepCountIs(2),
+    stopWhen: stepCountIs(5),
     tools: {
       create_event_plan: {
-        description: "Create a structured event plan once all details are confirmed.",
+        description: "Create a structured event plan once all details are confirmed. Dispatches Luma, catering, and vendor subagents in parallel.",
         inputSchema: z.object({
           title: z.string().describe("Short event title"),
           description: z.string().describe("One-sentence event summary"),
@@ -42,19 +45,30 @@ Be concise, warm, and keep the Greek mythology theme subtly in your tone.`,
           ).describe("Ordered list of planning steps"),
         }),
         execute: async (input) => {
-          if (!input.lumaPage) return { ...input, lumaEvent: null };
-
-          return {
-            ...input,
-            lumaEvent: {
-              url: "https://lu.ma/hestia-event-stub",
-              title: input.title,
-              description: input.description,
+          const [lumaEvent, catering, vendors] = await Promise.all([
+            input.lumaPage
+              ? runLumaAgent({
+                  title: input.title,
+                  description: input.description,
+                  date: input.date,
+                  area: input.area,
+                  headcount: input.headcount,
+                })
+              : Promise.resolve(null),
+            runCateringAgent({
+              headcount: input.headcount,
+              food: input.food,
+              area: input.area,
               date: input.date,
+            }),
+            runVendorsAgent({
               area: input.area,
               headcount: input.headcount,
-            },
-          };
+              date: input.date,
+            }),
+          ]);
+
+          return { ...input, lumaEvent, catering, vendors };
         },
       },
     },

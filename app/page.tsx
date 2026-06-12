@@ -50,7 +50,15 @@ import {
   PlanTitle,
   PlanTrigger,
 } from "@/components/ai-elements/plan";
+import {
+  Agent,
+  AgentContent,
+  AgentHeader,
+} from "@/components/ai-elements/agent";
 import { LumaEventCard } from "@/components/ai-elements/luma-event-card";
+import { CateringCard } from "@/components/ai-elements/catering-card";
+import { VendorsCard } from "@/components/ai-elements/vendors-card";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -142,11 +150,28 @@ export default function ChatPage() {
                             area: string;
                             headcount: number;
                           } | null;
-                          lumaError?: string;
+                          catering: {
+                            provider: string;
+                            menu: string[];
+                            notes: string;
+                            estimatedCostPerHead: number;
+                          };
+                          vendors: {
+                            vendors: { category: string; name: string; notes: string }[];
+                          };
                         };
                       };
                       const streaming = p.state === "input-streaming";
+                      const dispatching = p.state === "input-available";
+                      const done = p.state === "output-available";
                       const input = p.input ?? {};
+
+                      const subagents = [
+                        { name: "Luma", label: "Creating event page", icon: "🔗" },
+                        { name: "Catering", label: "Sourcing catering", icon: "🍽" },
+                        { name: "Vendors", label: "Finding vendors", icon: "🏛" },
+                      ];
+
                       return (
                         <div className="flex flex-col gap-3" key={i}>
                           <Plan defaultOpen isStreaming={streaming}>
@@ -164,9 +189,6 @@ export default function ChatPage() {
                                   <span>📍 {input.area}</span>
                                   <span>📅 {input.date}</span>
                                   <span>🍽 {input.food}</span>
-                                  {input.lumaPage && !p.output && (
-                                    <span className="col-span-2 text-muted-foreground">Creating Luma event page…</span>
-                                  )}
                                 </div>
                                 {(input.steps ?? []).length > 0 && (
                                   <ol className="flex flex-col gap-2 mt-1">
@@ -181,6 +203,29 @@ export default function ChatPage() {
                               </div>
                             </PlanContent>
                           </Plan>
+
+                          {(dispatching || done) && (
+                            <div className="flex flex-col gap-2">
+                              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Subagents</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {subagents.map(({ name, label, icon }) => (
+                                  <Agent key={name}>
+                                    <AgentHeader
+                                      name={`${icon} ${name}`}
+                                      model={dispatching ? "Running…" : "Done"}
+                                    />
+                                    <AgentContent className="pb-3 pt-0">
+                                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        {dispatching && <Spinner className="size-3 shrink-0" />}
+                                        {label}
+                                      </div>
+                                    </AgentContent>
+                                  </Agent>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {p.output?.lumaEvent && (
                             <LumaEventCard
                               area={p.output.lumaEvent.area}
@@ -191,10 +236,16 @@ export default function ChatPage() {
                               url={p.output.lumaEvent.url}
                             />
                           )}
-                          {p.output?.lumaError && (
-                            <p className="text-xs text-destructive">
-                              Luma error: {p.output.lumaError}
-                            </p>
+                          {p.output?.catering && (
+                            <CateringCard
+                              provider={p.output.catering.provider}
+                              menu={p.output.catering.menu}
+                              notes={p.output.catering.notes}
+                              estimatedCostPerHead={p.output.catering.estimatedCostPerHead}
+                            />
+                          )}
+                          {p.output?.vendors && (
+                            <VendorsCard vendors={p.output.vendors.vendors} />
                           )}
                         </div>
                       );
