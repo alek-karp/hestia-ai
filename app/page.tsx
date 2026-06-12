@@ -9,6 +9,7 @@ import {
   AgentHeader,
 } from "@/components/ai-elements/agent";
 import { AgentAvatar } from "@/components/ai-elements/agent-avatar";
+import { BookingTracker } from "@/components/ai-elements/booking-tracker";
 import { CateringCard } from "@/components/ai-elements/catering-card";
 import {
   Context,
@@ -352,6 +353,7 @@ export default function ChatPage() {
                                   email?: string;
                                 }[];
                               };
+                              campaignId?: string | null;
                             };
                           };
                           const streaming = p.state === "input-streaming";
@@ -480,6 +482,11 @@ export default function ChatPage() {
                               {p.output?.vendors && (
                                 <VendorsCard
                                   vendors={p.output.vendors.vendors}
+                                />
+                              )}
+                              {p.output?.campaignId && (
+                                <BookingTracker
+                                  campaignId={p.output.campaignId}
                                 />
                               )}
                             </div>

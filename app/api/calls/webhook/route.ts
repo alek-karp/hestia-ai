@@ -3,6 +3,7 @@
 // https://hestia-ai-two.vercel.app/api/calls/webhook
 
 import { upsertCallResult } from "@/lib/calls/store";
+import { ingestCallReport } from "@/lib/orchestrator";
 
 type VapiEvent = {
   type: string;
@@ -44,6 +45,17 @@ export async function POST(req: Request) {
       businessName,
       bookingStatus,
     });
+
+    // Feed the call outcome into the autonomous orchestrator so the agent can
+    // act on what was agreed (book, decline, or escalate) without a human.
+    if (payload.call?.id) {
+      await ingestCallReport({
+        callId: payload.call.id,
+        summary,
+      }).catch((err) =>
+        console.error("[call-webhook] orchestrator ingest failed", err),
+      );
+    }
   }
 
   return new Response("ok");

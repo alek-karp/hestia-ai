@@ -4,7 +4,7 @@
 
 ## Overview
 
-Hestia is an AI event-planning assistant. The user chats with an AI that gathers five event details, then dispatches three parallel subagents to produce a structured plan.
+Hestia is an AI event-planning assistant. The user chats with an AI that gathers five event details, then dispatches three parallel subagents to produce a structured plan. After outreach is sent, an **autonomous booking orchestrator** takes over: it negotiates with each vendor over email/phone, auto-replying to responses, booking, declining, or escalating — with little to no human input.
 
 ## Request Flow
 
@@ -20,12 +20,19 @@ Browser (app/page.tsx)
                   ])
               └── initiateCall × N        (VAPI outbound phone calls)
               └── sendOutreachEmail × N   (AgentMail vendor/caterer emails)
+              └── registerCampaign(...)   (lib/orchestrator → one self-driving task per vendor)
               └── createUIMessageStreamResponse → browser
 
 Navbar (components/airbyte-test-button.tsx)
   └── POST /api/airbyte/test
         └── lib/airbyte/context-store.ts → Context Store Notion background test search
+
+Async, no human input (after the plan is created):
+  AgentMail webhook → ingestEmailReply  ┐
+  VAPI webhook      → ingestCallReport   ├→ lib/orchestrator → agent decides + acts
+  UI poller / tick  → tick (mock vendors)┘     (auto-reply · book · decline · escalate)
 ```
+
 
 ### Step-by-step
 
@@ -61,6 +68,32 @@ After the subagents return, `create_event_plan` fans out to two outbound channel
 - **Reply loop (polling + human-in-the-loop):** outreach threads carry AgentMail's system `sent` label, which the default thread list hides — so `listThreads` filters by `labels: ["sent"]` to surface all outreach (replies keep the label, so replied threads show too). `awaitingReply` is true when the latest sender isn't our own inbox.
 - **`app/api/emails/outreach/route.ts`** — manual outreach trigger (POST, optional JSON override). **`app/api/emails/replies/route.ts`** — GET lists threads, GET `?threadId=` returns a full thread. **`app/api/emails/replies/draft/route.ts`** — POST `{ threadId }` returns an AI-drafted reply (sends nothing). **`app/api/emails/replies/reply/route.ts`** — POST `{ threadId, text }` sends the approved reply to the thread's last message. **`app/api/emails/webhook/route.ts`** — receives AgentMail events (`message.received` etc.); verify svix signatures with `AGENTMAIL_WEBHOOK_SECRET` in production.
 - **`components/email-vendor-button.tsx`** — navbar button that POSTs to the outreach route. **`app/inbox/page.tsx`** — "Inbox" tab: thread list + conversation view + AI-draft/approve/send composer (polls on load and after sending). Added to `components/nav-tabs.tsx`.
+
+## Autonomous Booking Orchestrator
+
+After `create_event_plan` sends outreach, it calls `registerCampaign` to hand every reachable caterer/vendor to a **self-driving loop** (`lib/orchestrator/`). Each vendor becomes a `BookingTask` that the agent advances through a small state machine — `contacted → negotiating → quote_received → booked` (or `declined` / `needs_human`) — with no human input. The agent auto-replies to vendor responses, books when terms are acceptable, and only escalates when it genuinely can't decide.
+
+- **`lib/orchestrator/types.ts`** — domain model: `BookingStage`, `ChannelKind`, `Awaiting`, `ConversationTurn`, `AgentAction`, `DecisionLogEntry`, `EventBrief`, `BookingTask`, `Campaign`, `OrchestratorState`.
+- **`lib/orchestrator/store.ts`** — file-backed persistence at `.data/orchestrator.json` (gitignored) with an in-memory singleton cached on `globalThis` so state survives across the independent requests the loop spans (webhooks, UI poller, ticks). CRUD + `findTaskByThreadId` / `findTaskByCallId` for webhook matching.
+- **`lib/orchestrator/agent.ts`** — `decideNextAction(task)`: the autonomous decision-maker. Uses `generateObject` (gpt-4o-mini) to choose `send_reply` / `book` / `decline` / `wait` / `escalate` from the event brief + conversation. Falls back to a deterministic heuristic when `OPENAI_API_KEY` is absent or the call fails. Escalates after `MAX_HESTIA_TURNS` (4) without a confirmation.
+- **`lib/orchestrator/simulator.ts`** — `simulateVendorReply(task)`: stands in for a real vendor in mock mode so the loop advances end-to-end without AgentMail/VAPI. Persona drives the outcome (`cooperative`/`pricey` → booked, `busy` → declined, `haggler` → escalates). Demo-seeded tasks (those with a forced `mockPersona`) use the scripted replies so the showcase is identical every run; organic mock tasks fall through to the LLM for variety.
+- **`lib/orchestrator/demo.ts`** — `DEMO_EVENT` + `DEMO_TARGETS`: a ready-made campaign of six mock vendors (mixed email/call) whose forced personas guarantee a full outcome spread (4 booked, 1 declined, 1 escalated). No chat flow, no real emails/calls.
+- **`lib/orchestrator/index.ts`** — the orchestrator API: `registerCampaign(event, targets)` (creates tasks; real `threadId`/`callId` ⇒ live, otherwise `mock`; targets may carry a `mockPersona`), `ingestEmailReply` / `ingestCallReport` (append the vendor turn, then `advanceTask`), `advanceTask(taskId)` (run the agent + apply the action — demo tasks use the deterministic decision path; a hard `MAX_HESTIA_TURNS` rail force-escalates to a human so no task loops forever), `tick()` (one autonomous step), `seedDemoCampaign()` / `resetOrchestrator()` (demo load + clean slate), and `getOverview()` for the UI.
+- **Wiring:** `app/chat/route.ts` builds campaign targets from caterers/vendors after sending outreach. In **demo mode** (`HESTIA_DEMO_MODE` !== `"false"`, the default) it makes *every* vendor a task (fabricating a placeholder email when Exa surfaced none), flags each `forceMock` with a cycled persona, and still fires the real email/call — so the Agent board self-completes from a single chat message without anyone replying. With demo mode off, only vendors with a real contact become tasks and the loop waits on genuine vendor replies. `app/api/emails/webhook/route.ts` → `ingestEmailReply`. `app/api/calls/webhook/route.ts` → `ingestCallReport`.
+- **API routes:** `app/api/orchestrator/route.ts` (GET overview, optional `?campaignId=` filter), `app/api/orchestrator/tick/route.ts` (POST one loop step; optional `{ campaignId }` scopes it), `app/api/orchestrator/seed/route.ts` (POST → load the demo campaign), `app/api/orchestrator/reset/route.ts` (POST → wipe all state), `app/api/orchestrator/task/route.ts` (POST `{ taskId, action: "book" | "decline" }` → human-in-the-loop override via `resolveTask`).
+- **`app/agent/page.tsx`** — "Agent" tab: a live booking board grouped by stage, with per-task conversation + decision-log drill-down. **Load demo** seeds the canned campaign and flips on Autopilot; **Reset** wipes state; **Autopilot** polls `/api/orchestrator/tick` every ~2.5s until no tasks are active; **Step** advances one iteration manually. Added to `components/nav-tabs.tsx`.
+- **`components/ai-elements/booking-tracker.tsx`** — the inline tracker rendered **in the chat** right after `create_event_plan` returns (scoped to that call's `campaignId`, which the tool now returns). It self-drives the loop (polls + ticks `/api/orchestrator/tick` every ~1.4s until every vendor resolves) and has two views: a **Live activity** feed (default) — a chronological stream of every email/call message and agent action across the whole campaign, so the user reads the actual outreach copy and watches bookings happen autonomously without expanding anything — and a **Vendors** list with per-vendor status, expandable transcripts, and inline **Approve / Pass** for any `needs_human` escalation (POST `/api/orchestrator/task`); a click-through red banner jumps to it. The entire outreach lifecycle — watching, reading the emails, drilling in, and approving — happens in the Planner without visiting the Agent tab. **Autopilot runs silently and its toggle/Step controls are hidden by default** (not in the DOM) so they're invisible during demos; reveal them with `hestiaDev()` in the browser console (`hestiaDev(false)` to hide; backed by a `hestia_dev` localStorage flag).
+
+### Demoing without real emails/calls
+
+**Demo mode is on by default** (`HESTIA_DEMO_MODE` unset or anything but `"false"`), so the concept is fully showcasable two ways:
+
+1. **Full chat flow** — describe an event in the **Planner** (e.g. "rooftop launch for 80 in Austin on Aug 14, shared plates, yes Luma page"). `create_event_plan` runs the real subagents, sends the real outreach (visible in the **Inbox**), then registers every sourced vendor as a self-driving task. An **inline "Outreach & Bookings" tracker** appears right under the plan and drives the whole campaign to completion — booked / declined / needs_human — with live per-vendor status, expandable transcripts, and inline **Approve / Pass** for escalations. No need to leave the chat (the **Agent** tab shows the same board if you want the full-screen view).
+2. **One click** — on the **Agent** tab hit **Load demo** for a canned six-vendor campaign (no chat, no sends) with a guaranteed 4 booked / 1 declined / 1 escalated spread. **Reset** clears the board.
+
+To require *real* vendor replies instead (live threads/calls, human-in-the-loop via the Inbox), set `HESTIA_DEMO_MODE=false`.
+
+
 
 ## Workflow Visualization (observability)
 
@@ -98,6 +131,7 @@ Purpose-built chat UI primitives using compound-component patterns with named su
 | `context.tsx` | Token usage display |
 | `luma-event-card.tsx` | Renders Luma event output |
 | `catering-card.tsx` | Renders a single caterer result |
+| `booking-tracker.tsx` | Inline live booking tracker shown in the chat after a plan; self-drives the autonomous loop and offers inline Approve/Pass for escalations |
 | `vendors-card.tsx` | Renders the vendor list |
 | `workflow-canvas.tsx` | Reactive right-hand workflow panel (Graph + Trace tabs) |
 | `workflow-node.tsx` | React Flow node, status badge, icon map |

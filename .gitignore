@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# orchestrator state (file-backed store)
+/.data
+
 # debug
 npm-debug.log*
 yarn-debug.log*

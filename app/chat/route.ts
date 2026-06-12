@@ -18,6 +18,7 @@ import {
 import { initiateCall } from "@/lib/calls";
 import { sendOutreachEmail } from "@/lib/emails";
 import { composeOutreach } from "@/lib/emails/compose";
+import { type CampaignTargetInput, registerCampaign } from "@/lib/orchestrator";
 
 export async function POST(req: Request) {
   const { messages, modelId } = (await req.json()) as {
@@ -203,6 +204,104 @@ Rules:
             )
             .map((r) => r.value);
 
+          // Register an autonomous booking campaign and surface its id so the
+          // chat UI can track progress inline (no need to visit the Agent tab).
+          let campaignId: string | null = null;
+          try {
+            const demoMode = process.env.HESTIA_DEMO_MODE !== "false";
+
+            const composedByName = new Map(
+              emailTargets.map((e) => [e.businessName, e.text]),
+            );
+            const emailRecordByName = new Map<string, { threadId: string }>();
+            for (const e of emails) {
+              if (e) emailRecordByName.set(e.businessName, e);
+            }
+            const callRecordByName = new Map<string, { callId: string }>();
+            for (const c of calls) {
+              if (c) callRecordByName.set(c.businessName, c);
+            }
+
+            const contacts = [
+              ...catering.map((c) => ({
+                name: c.provider,
+                category: "Catering",
+                email: c.email,
+                phone: c.phone,
+              })),
+              ...vendors.vendors.map((v) => ({
+                name: v.name,
+                category: v.category,
+                email: v.email,
+                phone: v.phone,
+              })),
+            ];
+
+            // A persona spread that guarantees a varied, interesting demo:
+            // mostly bookings, one decline, one escalation to a human.
+            const PERSONA_CYCLE = [
+              "cooperative",
+              "cooperative",
+              "haggler",
+              "pricey",
+              "busy",
+              "cooperative",
+              "cooperative",
+              "pricey",
+            ] as const;
+
+            const slug = (name: string) =>
+              name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "")
+                .slice(0, 40) || "vendor";
+
+            // In demo mode every vendor becomes a task (contacts are fabricated
+            // when Exa didn't surface one), so the board always populates from a
+            // chat request. Otherwise only vendors with a real contact qualify.
+            const eligible = demoMode
+              ? contacts
+              : contacts.filter((c) => c.email || c.phone);
+
+            const targets: CampaignTargetInput[] = eligible.map((c, i) => {
+              const email =
+                c.email ??
+                (demoMode ? `${slug(c.name)}@vendor.example` : undefined);
+              const preferEmail = Boolean(email);
+              const channel = preferEmail ? "email" : "call";
+              return {
+                vendorName: c.name,
+                category: c.category,
+                channel,
+                contact: { email, phone: c.phone },
+                threadId: preferEmail
+                  ? emailRecordByName.get(c.name)?.threadId
+                  : undefined,
+                callId: !preferEmail
+                  ? callRecordByName.get(c.name)?.callId
+                  : undefined,
+                openingMessage: preferEmail
+                  ? (composedByName.get(c.name) ??
+                    `Outreach email sent to ${c.name} regarding ${input.title}.`)
+                  : `Outbound call placed to ${c.name} regarding ${input.title}.`,
+                ...(demoMode
+                  ? {
+                      forceMock: true,
+                      mockPersona: PERSONA_CYCLE[i % PERSONA_CYCLE.length],
+                    }
+                  : {}),
+              } satisfies CampaignTargetInput;
+            });
+
+            if (targets.length > 0) {
+              const result = registerCampaign(eventBrief, targets);
+              campaignId = result.campaignId;
+            }
+          } catch (err) {
+            console.error("[orchestrator] failed to register campaign", err);
+          }
+
           return {
             ...input,
             airbyteContext,
@@ -211,6 +310,7 @@ Rules:
             vendors,
             calls,
             emails,
+            campaignId,
           };
         },
       },

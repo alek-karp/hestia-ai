@@ -11,6 +11,8 @@
 // svix-signature headers) against AGENTMAIL_WEBHOOK_SECRET using the `svix`
 // package before trusting the payload.
 
+import { ingestEmailReply } from "@/lib/orchestrator";
+
 type AgentMailMessage = {
   inboxId?: string;
   threadId?: string;
@@ -42,8 +44,16 @@ export async function POST(req: Request) {
       preview: (msg?.extractedText ?? msg?.text)?.slice(0, 300),
     });
 
-    // TODO: persist the reply / surface it in the planning UI — write to DB,
-    // update the workflow, notify the user, etc.
+    // Hand the reply to the autonomous orchestrator. It appends the vendor's
+    // message to the matching booking task and lets the agent decide and act
+    // (auto-reply, book, decline, or escalate) — no human required.
+    const threadId = msg?.threadId;
+    const text = msg?.extractedText ?? msg?.text;
+    if (threadId && text) {
+      await ingestEmailReply({ threadId, text }).catch((err) =>
+        console.error("[email-webhook] orchestrator ingest failed", err),
+      );
+    }
   }
 
   return new Response("ok");

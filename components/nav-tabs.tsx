@@ -1,12 +1,13 @@
 "use client";
 
-import { Inbox, MapPin, Sparkles, UtensilsCrossed } from "lucide-react";
+import { Inbox, MapPin, Radar, Sparkles, UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { label: "Planner", href: "/", icon: Sparkles },
+  { label: "Agent", href: "/agent", icon: Radar },
   { label: "Venues", href: "/venues", icon: MapPin },
   { label: "Caterers", href: "/caterers", icon: UtensilsCrossed },
   { label: "Inbox", href: "/inbox", icon: Inbox },
