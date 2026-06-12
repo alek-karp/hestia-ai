@@ -2,6 +2,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CallVenueButton } from "@/components/call-venue-button";
 import { NavTabs } from "@/components/nav-tabs";
+import { BookingPanelProvider } from "@/components/booking-panel-context";
+import { BookingPanelToggle } from "@/components/booking-panel-toggle";
 import { Flame } from "lucide-react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
@@ -45,6 +47,7 @@ export default function RootLayout({
     >
       <body className="h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <BookingPanelProvider>
           <header className="shrink-0 border-b bg-background px-6 h-14 relative flex items-center">
             <div className="flex items-center shrink-0">
               <Flame className="size-5 mr-2 text-orange-500" />
@@ -58,9 +61,11 @@ export default function RootLayout({
             <div className="ml-auto flex items-center gap-2 shrink-0">
               <CallVenueButton />
               <ThemeToggle />
+              <BookingPanelToggle />
             </div>
           </header>
           <div className="flex-1 flex flex-col min-h-0">{children}</div>
+          </BookingPanelProvider>
         </ThemeProvider>
       </body>
     </html>

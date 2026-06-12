@@ -56,6 +56,17 @@ Purpose-built chat UI primitives using compound-component patterns with named su
 | `catering-card.tsx` | Renders a single caterer result |
 | `vendors-card.tsx` | Renders the vendor list |
 
+### `components/` (root)
+| Component | Purpose |
+|-----------|---------|
+| `booking-panel.tsx` | Right sidebar: event summary + Venue/Catering/Luma Event booking cards (pending/confirmed states) |
+| `booking-panel-context.tsx` | `BookingPanelProvider` + `useBookingPanel` — shared open/close state between navbar and page |
+| `booking-panel-toggle.tsx` | Navbar `PanelRight` icon button that calls `togglePanel` from context |
+| `call-venue-button.tsx` | VAPI call trigger button in navbar |
+| `nav-tabs.tsx` | Centered navigation tabs in header |
+| `verified-caterer-card.tsx` | Verified caterer display card |
+| `verified-vendor-card.tsx` | Verified vendor display card |
+
 ### `components/ui/`
 shadcn/ui base components (Button, Card, Spinner, etc.). Do not add business logic here.
 

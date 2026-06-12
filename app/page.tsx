@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Agent,
   AgentContent,
@@ -62,6 +62,8 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { QuickReplies } from "@/components/ai-elements/suggestion";
 import { VendorsCard } from "@/components/ai-elements/vendors-card";
+import { BookingPanel } from "@/components/booking-panel";
+import { useBookingPanel, type EventPlanData } from "@/components/booking-panel-context";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -96,6 +98,7 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+  const { panelOpen, closePanel, setHasPlan, setEventPlan } = useBookingPanel();
 
   const modelIdRef = useRef(selectedModelId);
   modelIdRef.current = selectedModelId;
@@ -116,6 +119,50 @@ export default function ChatPage() {
     0,
   );
   const isStreaming = status === "streaming" || status === "submitted";
+
+  useEffect(() => {
+    for (const msg of messages) {
+      for (const part of msg.parts) {
+        if (part.type !== "tool-create_event_plan") continue;
+        const p = part as typeof part & {
+          state: "input-streaming" | "input-available" | "output-available";
+          input: { title: string; date: string; area: string; headcount: number };
+          output?: {
+            lumaEvent: { url: string; title: string } | null;
+            catering: { provider: string; menu: string[]; estimatedCostPerHead: number; url?: string }[];
+            vendors: { vendors: { category: string; name: string; notes: string; url?: string }[] };
+          };
+        };
+        setHasPlan(true);
+        const input = p.input ?? {};
+        const out = p.output;
+        const venueVendor = out?.vendors.vendors.find(
+          (v) => v.category.toLowerCase() === "venue",
+        );
+        const catering = out?.catering?.[0];
+        const plan: EventPlanData = {
+          title: input.title ?? "Event",
+          date: input.date ?? "",
+          area: input.area ?? "",
+          headcount: input.headcount ?? 0,
+          isDispatching: p.state === "input-available",
+          venue: venueVendor
+            ? { name: venueVendor.name, detail: venueVendor.notes, url: venueVendor.url }
+            : undefined,
+          catering: catering
+            ? {
+                name: catering.provider,
+                detail: `~$${catering.estimatedCostPerHead}/head`,
+                url: catering.url,
+              }
+            : undefined,
+          lumaEvent: out?.lumaEvent ?? undefined,
+        };
+        setEventPlan(plan);
+        return;
+      }
+    }
+  }, [messages, setHasPlan, setEventPlan]);
 
   const lastAssistantMsg = [...messages]
     .reverse()
@@ -138,7 +185,8 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-row h-full w-full">
+      <div className="flex flex-col flex-1 min-w-0 h-full">
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="px-4 py-6 max-w-3xl mx-auto w-full">
           {messages.length === 0 ? (
@@ -439,6 +487,12 @@ export default function ChatPage() {
           </PromptInputFooter>
         </PromptInput>
       </div>
+      </div>
+      {panelOpen && (
+        <div className="w-72 shrink-0 border-l bg-background hidden lg:block">
+          <BookingPanel onClose={closePanel} />
+        </div>
+      )}
     </div>
   );
 }
