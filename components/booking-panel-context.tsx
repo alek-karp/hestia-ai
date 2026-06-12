@@ -21,6 +21,8 @@ interface BookingPanelContextValue {
   closePanel: () => void;
   setHasPlan: (v: boolean) => void;
   setEventPlan: (plan: EventPlanData | null) => void;
+  workflowOpen: boolean;
+  toggleWorkflow: () => void;
 }
 
 const BookingPanelContext = createContext<BookingPanelContextValue>({
@@ -31,12 +33,19 @@ const BookingPanelContext = createContext<BookingPanelContextValue>({
   closePanel: () => {},
   setHasPlan: () => {},
   setEventPlan: () => {},
+  workflowOpen: true,
+  toggleWorkflow: () => {},
 });
 
-export function BookingPanelProvider({ children }: { children: React.ReactNode }) {
+export function BookingPanelProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [hasPlan, setHasPlan] = useState(false);
   const [eventPlan, setEventPlan] = useState<EventPlanData | null>(null);
+  const [workflowOpen, setWorkflowOpen] = useState(true);
   return (
     <BookingPanelContext.Provider
       value={{
@@ -47,6 +56,8 @@ export function BookingPanelProvider({ children }: { children: React.ReactNode }
         closePanel: () => setPanelOpen(false),
         setHasPlan,
         setEventPlan,
+        workflowOpen,
+        toggleWorkflow: () => setWorkflowOpen((v) => !v),
       }}
     >
       {children}

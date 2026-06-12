@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { AirbyteTestButton } from "@/components/airbyte-test-button";
 import { BookingPanelProvider } from "@/components/booking-panel-context";
 import { BookingPanelToggle } from "@/components/booking-panel-toggle";
+import { WorkflowToggle } from "@/components/workflow-toggle";
 import { CallVenueButton } from "@/components/call-venue-button";
 import { EmailVendorButton } from "@/components/email-vendor-button";
 import { NavTabs } from "@/components/nav-tabs";
@@ -65,6 +66,7 @@ export default function RootLayout({
                 <CallVenueButton />
                 <EmailVendorButton />
                 <ThemeToggle />
+                <WorkflowToggle />
                 <BookingPanelToggle />
               </div>
             </header>

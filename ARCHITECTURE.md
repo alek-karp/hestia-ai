@@ -49,9 +49,9 @@ After the subagents return, `create_event_plan` fans out to two outbound channel
 
 ### Phone calls (VAPI)
 
-- **`lib/calls/`** — `types.ts` (`OutboundCall`, `CallRecord`, `CallProvider`), `vapi.ts` (`createVapiProvider` → POST `/call/phone`), `index.ts` (`initiateCall`). Returns `null` when `VAPI_API_KEY` / `VAPI_PHONE_NUMBER_ID` / `VAPI_ASSISTANT_ID` are missing.
-- **`app/api/calls/venue/route.ts`** — manual demo trigger (POST). **`app/api/calls/webhook/route.ts`** — receives VAPI events (`end-of-call-report`, etc.).
-- **`components/call-venue-button.tsx`** — navbar button that POSTs to the venue route.
+- **`lib/calls/`** — `types.ts` (`OutboundCall`, `CallRecord`, `CallProvider`), `vapi.ts` (`createVapiProvider` → POST `/call/phone`), `index.ts` (`initiateCall`), `store.ts` (in-memory `callId → CallResult` map with `classifyBookingStatus` keyword scorer). Returns `null` when `VAPI_API_KEY` / `VAPI_PHONE_NUMBER_ID` / `VAPI_ASSISTANT_ID` are missing.
+- **`app/api/calls/venue/route.ts`** — manual demo trigger (POST). **`app/api/calls/webhook/route.ts`** — receives VAPI `end-of-call-report`, classifies booking outcome from transcript/summary, writes to store. Configure URL in VAPI dashboard: `https://hestia-ai-two.vercel.app/api/calls/webhook`. **`app/api/calls/status/route.ts`** — GET returns all `CallResult[]` from the in-memory store; polled by the booking panel every 5 s.
+- **`components/call-venue-button.tsx`** — navbar button that POSTs to the venue route. **`components/booking-panel.tsx`** — polls `/api/calls/status` every 5 s and renders a "Phone Outreach" section showing each call's vendor name, booking status badge (Booked / Unavailable / Calling… / Call ended), and VAPI summary.
 
 ### Email (AgentMail)
 
@@ -107,8 +107,9 @@ Purpose-built chat UI primitives using compound-component patterns with named su
 | Component | Purpose |
 |-----------|---------|
 | `booking-panel.tsx` | Right sidebar: event summary + Venue/Catering/Luma Event booking cards (pending/confirmed states) |
-| `booking-panel-context.tsx` | `BookingPanelProvider` + `useBookingPanel` — shared open/close state between navbar and page |
+| `booking-panel-context.tsx` | `BookingPanelProvider` + `useBookingPanel` — shared open/close state between navbar and page; also holds `workflowOpen` / `toggleWorkflow` |
 | `booking-panel-toggle.tsx` | Navbar `PanelRight` icon button that calls `togglePanel` from context |
+| `workflow-toggle.tsx` | Navbar button that calls `toggleWorkflow` to show/hide the `WorkflowCanvas` sidebar |
 | `airbyte-test-button.tsx` | Navbar smoke-test button for `/api/airbyte/test`; displays record counts or the Airbyte error |
 | `call-venue-button.tsx` | VAPI call trigger button in navbar |
 | `email-vendor-button.tsx` | AgentMail outreach trigger button in navbar |

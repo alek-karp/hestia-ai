@@ -183,7 +183,7 @@ export function WorkflowCanvas({
 
   if (!active) {
     return (
-      <aside className="flex w-72 shrink-0 flex-col items-center justify-center border-l bg-sidebar p-8 text-center lg:w-[26rem]">
+      <aside className="flex w-72 shrink-0 flex-col items-center justify-center border-r bg-sidebar p-8 text-center lg:w-[26rem]">
         <WorkflowIcon className="size-8 text-muted-foreground/50" />
         <h2 className="mt-3 font-medium text-sm">Workflow</h2>
         <p className="mt-1 max-w-[16rem] text-muted-foreground text-xs">
@@ -195,7 +195,7 @@ export function WorkflowCanvas({
   }
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-l bg-background sm:w-80 lg:w-[26rem]">
+    <aside className="flex w-72 shrink-0 flex-col border-r bg-background sm:w-80 lg:w-[26rem]">
       <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <h2 className="truncate font-semibold text-sm">{name}</h2>

@@ -121,7 +121,8 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
-  const { panelOpen, closePanel, setHasPlan, setEventPlan } = useBookingPanel();
+  const { panelOpen, closePanel, setHasPlan, setEventPlan, workflowOpen } =
+    useBookingPanel();
 
   const modelIdRef = useRef(selectedModelId);
   modelIdRef.current = selectedModelId;
@@ -149,11 +150,28 @@ export default function ChatPage() {
         if (part.type !== "tool-create_event_plan") continue;
         const p = part as typeof part & {
           state: "input-streaming" | "input-available" | "output-available";
-          input: { title: string; date: string; area: string; headcount: number };
+          input: {
+            title: string;
+            date: string;
+            area: string;
+            headcount: number;
+          };
           output?: {
             lumaEvent: { url: string; title: string } | null;
-            catering: { provider: string; menu: string[]; estimatedCostPerHead: number; url?: string }[];
-            vendors: { vendors: { category: string; name: string; notes: string; url?: string }[] };
+            catering: {
+              provider: string;
+              menu: string[];
+              estimatedCostPerHead: number;
+              url?: string;
+            }[];
+            vendors: {
+              vendors: {
+                category: string;
+                name: string;
+                notes: string;
+                url?: string;
+              }[];
+            };
           };
         };
         setHasPlan(true);
@@ -170,7 +188,11 @@ export default function ChatPage() {
           headcount: input.headcount ?? 0,
           isDispatching: p.state === "input-available",
           venue: venueVendor
-            ? { name: venueVendor.name, detail: venueVendor.notes, url: venueVendor.url }
+            ? {
+                name: venueVendor.name,
+                detail: venueVendor.notes,
+                url: venueVendor.url,
+              }
             : undefined,
           catering: catering
             ? {
@@ -240,6 +262,14 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full w-full min-h-0">
+      {!panelOpen && workflowOpen && (
+        <WorkflowCanvas
+          active={messages.length > 0}
+          insights={insights}
+          name={workflow.name}
+          steps={workflow.steps}
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="px-4 py-6 max-w-3xl mx-auto w-full">
@@ -551,17 +581,10 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {panelOpen ? (
+      {panelOpen && (
         <div className="w-72 shrink-0 border-l bg-background hidden lg:block">
           <BookingPanel onClose={closePanel} />
         </div>
-      ) : (
-        <WorkflowCanvas
-          active={messages.length > 0}
-          insights={insights}
-          name={workflow.name}
-          steps={workflow.steps}
-        />
       )}
     </div>
   );
